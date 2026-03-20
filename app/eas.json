@@ -1,0 +1,32 @@
+{
+  "cli": {
+    "version": ">= 10.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "DEINE-APPLE-ID@email.com",
+        "ascAppId": "DEINE-APP-STORE-CONNECT-APP-ID",
+        "appleTeamId": "DEIN-TEAM-ID"
+      }
+    }
+  }
+}

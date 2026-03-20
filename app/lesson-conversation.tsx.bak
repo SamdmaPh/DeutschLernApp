@@ -1,0 +1,378 @@
+import {
+  View, Text, TouchableOpacity, ScrollView, StyleSheet,
+  StatusBar, Animated, Platform
+} from "react-native";
+import { useState, useEffect, useRef } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Audio } from "expo-av";
+import * as FileSystem from "expo-file-system";
+import { Progress } from "../services/progress";
+import { C, SAFE_TOP, SAFE_BOTTOM, SERIF } from "../theme";
+
+const BACKEND = "https://deutschlernappbackend2-production.up.railway.app";
+const MIN_SECONDS = 180;
+
+function FlagStrip() {
+  return (
+    <View style={{ flexDirection: "row", height: 3 }}>
+      <View style={{ flex: 1, backgroundColor: C.flagBlack }} />
+      <View style={{ flex: 1, backgroundColor: C.flagRed }} />
+      <View style={{ flex: 1, backgroundColor: C.flagGold }} />
+    </View>
+  );
+}
+
+function fmt(secs: number) {
+  return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+}
+
+interface Msg { id: string; role: "user" | "assistant"; content: string; }
+
+export default function LessonConversationScreen() {
+  const router = useRouter();
+  const { lessonId, lessonTitle, lessonLevel, goalsJson, speakJson } = useLocalSearchParams<{
+    lessonId: string; lessonTitle: string; lessonLevel: string; goalsJson: string; speakJson: string;
+  }>();
+
+  const goals: string[]  = (() => { try { return JSON.parse(goalsJson  || "[]"); } catch { return []; } })();
+  const speaks: string[] = (() => { try { return JSON.parse(speakJson  || "[]"); } catch { return []; } })();
+
+  const [messages, setMessages]     = useState<Msg[]>([]);
+  const [isRec, setIsRec]           = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [spokenSecs, setSpokenSecs] = useState(0);
+  const [msgCount, setMsgCount]     = useState(0);
+  const [completed, setCompleted]   = useState(false);
+  const [totalXP, setTotalXP]       = useState(0);
+
+  const scrollRef  = useRef<ScrollView>(null);
+  const recRef     = useRef<Audio.Recording | null>(null);
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pulseAnim  = useRef(new Animated.Value(1)).current;
+  const pulseLoop  = useRef<Animated.CompositeAnimation | null>(null);
+  const fadeAnim   = useRef(new Animated.Value(0)).current;
+
+  const progress  = Math.min(spokenSecs / MIN_SECONDS, 1);
+  const canFinish = spokenSecs >= MIN_SECONDS && msgCount >= 2 && !loading;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    greet();
+    return () => {
+      stopTimer();
+      recRef.current?.stopAndUnloadAsync().catch(() => {});
+    };
+  }, []);
+
+  async function greet() {
+    setLoading(true);
+    const phrases = speaks.slice(0, 3).map(s => s.split(" :: ")[0]?.trim()).filter(Boolean).join(", ");
+    const prompt = [
+      `Du bist ein freundlicher, ermutigender Deutschlehrer für eine kurze Sprechübung.`,
+      `Die Lektion heißt "${lessonTitle}" (Level ${lessonLevel}).`,
+      goals.length > 0 ? `Lernziele: ${goals.slice(0, 2).join("; ")}.` : "",
+      phrases ? `Wichtige Phrasen: ${phrases}.` : "",
+      `Starte mit einer einzigen, einfachen Frage auf Deutsch die direkt zur Lektion passt.`,
+      `Halte alle Antworten sehr kurz (max. 2 Sätze). Korrigiere Fehler sanft am Ende.`,
+    ].filter(Boolean).join(" ");
+
+    try {
+      const res = await fetch(`${BACKEND}/api/conversation`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: [], topic: prompt, level: lessonLevel }),
+      });
+      const data = await res.json().catch(() => ({}));
+      const reply = data.text || data.reply || `Hallo! Erzähl mir: Was hast du heute über "${lessonTitle}" gelernt?`;
+      setMessages([{ id: "0", role: "assistant", content: reply }]);
+    } catch {
+      setMessages([{ id: "0", role: "assistant", content: `Hallo! Was hast du heute über "${lessonTitle}" gelernt?` }]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function startTimer() {
+    stopTimer();
+    timerRef.current = setInterval(() => setSpokenSecs(s => s + 1), 1000);
+  }
+  function stopTimer() {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }
+
+  async function toggleMic() {
+    if (loading) return;
+    if (isRec) await stopRec();
+    else await startRec();
+  }
+
+  async function startRec() {
+    try {
+      setError(null);
+      const { granted } = await Audio.requestPermissionsAsync();
+      if (!granted) { setError("Mikrofon-Zugriff verweigert. Bitte in Einstellungen aktivieren."); return; }
+
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      const { recording } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      recRef.current = recording;
+      setIsRec(true);
+      startTimer();
+
+      pulseLoop.current = Animated.loop(Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.25, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.0,  duration: 600, useNativeDriver: true }),
+      ]));
+      pulseLoop.current.start();
+    } catch {
+      setError("Mikrofon konnte nicht gestartet werden.");
+    }
+  }
+
+  async function stopRec() {
+    if (!recRef.current) return;
+    pulseLoop.current?.stop();
+    pulseAnim.setValue(1);
+    setIsRec(false);
+    stopTimer();
+    setLoading(true);
+
+    try {
+      await recRef.current.stopAndUnloadAsync();
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+      const uri = recRef.current.getURI();
+      recRef.current = null;
+      if (!uri) { setLoading(false); return; }
+
+      // Use expo-file-system (reliable on iOS)
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      const context = [
+        `Lektion: "${lessonTitle}" (Level ${lessonLevel}).`,
+        goals.length > 0 ? `Lernziele: ${goals.slice(0, 2).join("; ")}.` : "",
+        `Antworte kurz (1-2 Sätze). Beziehe dich auf den Lektionsinhalt. Korrigiere sanft.`,
+      ].filter(Boolean).join(" ");
+
+      const res = await fetch(`${BACKEND}/api/audio-conversation`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          audio: base64,
+          messages: messages.map(m => ({ role: m.role, content: m.content })),
+          level: lessonLevel,
+          topic: context,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!data || data.error) { setError(data?.error || "Server nicht erreichbar."); setLoading(false); return; }
+
+      const updated: Msg[] = [
+        ...messages,
+        { id: Date.now().toString(),       role: "user",      content: data.userText      || "…" },
+        { id: (Date.now() + 1).toString(), role: "assistant", content: data.assistantText || "…" },
+      ];
+      setMessages(updated);
+      setMsgCount(c => c + 1);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
+
+      if (data.audio) await playAudio(data.audio);
+    } catch (e: any) {
+      setError("Verbindungsfehler. Nochmal versuchen.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function playAudio(base64: string) {
+    try {
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: `data:audio/mp4;base64,${base64}` }, { shouldPlay: true }
+      );
+      sound.setOnPlaybackStatusUpdate(st => {
+        if (st.isLoaded && st.didJustFinish) sound.unloadAsync();
+      });
+    } catch {}
+  }
+
+  // Quality score based on speaking time + message count
+  function calcXP() {
+    const timeBonus  = Math.floor(spokenSecs / 10) * 2;
+    const msgBonus   = Math.min(msgCount, 10) * 5;
+    const qualityXP  = 80 + timeBonus + msgBonus;
+    return Math.min(qualityXP, 200);
+  }
+
+  async function finish() {
+    const xp = calcXP();
+    setTotalXP(xp);
+    await Progress.addXP(xp);
+    setCompleted(true);
+  }
+
+  // ── COMPLETED ────────────────────────────────────────
+  if (completed) return (
+    <View style={s.container}>
+      <StatusBar barStyle="light-content" />
+      <View style={{ height: SAFE_TOP }} />
+      <FlagStrip />
+      <View style={s.doneWrap}>
+        <Text style={s.doneStar}>🎙</Text>
+        <Text style={s.doneTitle}>Gesprochen!</Text>
+        <Text style={s.doneXP}>+{totalXP} XP</Text>
+        <View style={s.doneStats}>
+          <View style={s.doneStat}>
+            <Text style={s.doneStatNum}>{fmt(spokenSecs)}</Text>
+            <Text style={s.doneStatLabel}>Gesprochen</Text>
+          </View>
+          <View style={s.doneStat}>
+            <Text style={s.doneStatNum}>{msgCount}</Text>
+            <Text style={s.doneStatLabel}>Austausche</Text>
+          </View>
+        </View>
+        <Text style={s.doneSub}>
+          {spokenSecs >= MIN_SECONDS
+            ? "Du hast das Ziel erreicht. Dein Gehirn hat die Lektion verankert."
+            : "Gut gemacht! Nächstes Mal noch etwas länger sprechen."}
+        </Text>
+        <TouchableOpacity style={s.doneBtn} onPress={() => router.replace("/lessons")} activeOpacity={0.85}>
+          <Text style={s.doneBtnText}>Zurück zu den Lektionen</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  // ── MAIN ─────────────────────────────────────────────
+  return (
+    <View style={s.container}>
+      <StatusBar barStyle="light-content" />
+      <View style={{ height: SAFE_TOP }} />
+      <FlagStrip />
+
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={12} activeOpacity={0.7}>
+          <Text style={s.back}>‹</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1, alignItems: "center" }}>
+          <Text style={s.headerTitle}>Sprich darüber</Text>
+          <Text style={s.headerSub}>{lessonTitle}</Text>
+        </View>
+        <View style={{ width: 44 }} />
+      </View>
+
+      {/* Timer */}
+      <View style={s.timerCard}>
+        <View style={s.timerRow}>
+          <Text style={[s.timerNum, spokenSecs >= MIN_SECONDS && { color: C.green }]}>
+            {fmt(spokenSecs)}
+          </Text>
+          <Text style={s.timerGoal}> / {fmt(MIN_SECONDS)}</Text>
+        </View>
+        <View style={s.progressTrack}>
+          <View style={[s.progressFill, {
+            width: `${Math.min(progress * 100, 100)}%` as any,
+            backgroundColor: spokenSecs >= MIN_SECONDS ? C.green : C.gold,
+          }]} />
+        </View>
+        <Text style={s.timerHint}>
+          {spokenSecs >= MIN_SECONDS
+            ? "✓ Ziel erreicht! Du kannst abschließen."
+            : isRec
+              ? "🔴 Sprich jetzt…"
+              : `Noch ${fmt(MIN_SECONDS - spokenSecs)} sprechen`}
+        </Text>
+      </View>
+
+      {/* Messages */}
+      <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={s.msgs} showsVerticalScrollIndicator={false}>
+        {messages.map(m => (
+          <View key={m.id} style={[s.bubble, m.role === "user" ? s.bubbleUser : s.bubbleAI]}>
+            <Text style={[s.bubbleText, m.role === "user" && { color: C.white }]}>{m.content}</Text>
+          </View>
+        ))}
+        {loading && (
+          <View style={[s.bubble, s.bubbleAI]}>
+            <Text style={[s.bubbleText, { color: C.muted }]}>…</Text>
+          </View>
+        )}
+        {error && (
+          <TouchableOpacity style={s.errorCard} onPress={() => setError(null)}>
+            <Text style={s.errorText}>⚠️ {error} (Tippen zum Schließen)</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+
+      {/* Finish button */}
+      {canFinish && (
+        <TouchableOpacity style={s.finishBtn} onPress={finish} activeOpacity={0.85}>
+          <Text style={s.finishBtnText}>✓ Lektion abschließen</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Mic */}
+      <View style={s.micArea}>
+        <Text style={s.micHint}>
+          {loading ? "KI antwortet…" : isRec ? "🔴 Nochmal tippen zum Stoppen" : "Tippen und sprechen"}
+        </Text>
+        <TouchableOpacity onPress={toggleMic} disabled={loading} activeOpacity={0.8}>
+          <Animated.View style={[
+            s.micBtn,
+            isRec && s.micBtnRec,
+            loading && { opacity: 0.4 },
+            { transform: [{ scale: pulseAnim }] },
+          ]}>
+            <Text style={{ fontSize: 32 }}>{isRec ? "⏹" : "🎙"}</Text>
+          </Animated.View>
+        </TouchableOpacity>
+        <View style={{ height: SAFE_BOTTOM + 8 }} />
+      </View>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container:    { flex: 1, backgroundColor: C.bg },
+  header:       { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 12 },
+  back:         { color: C.gold, fontSize: 28, fontWeight: "300", lineHeight: 34, width: 44 },
+  headerTitle:  { fontFamily: SERIF, fontSize: 16, fontWeight: "700", color: C.white, fontStyle: "italic" },
+  headerSub:    { fontSize: 11, color: C.muted, marginTop: 1 },
+
+  timerCard:    { marginHorizontal: 20, marginBottom: 8, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 14 },
+  timerRow:     { flexDirection: "row", alignItems: "baseline", marginBottom: 8 },
+  timerNum:     { fontSize: 28, fontWeight: "900", color: C.gold },
+  timerGoal:    { fontSize: 14, color: C.muted },
+  progressTrack:{ height: 4, backgroundColor: C.bg3, borderRadius: 2, overflow: "hidden", marginBottom: 6 },
+  progressFill: { height: 4, borderRadius: 2 },
+  timerHint:    { fontSize: 11, color: C.muted },
+
+  msgs:         { padding: 16, paddingBottom: 8 },
+  bubble:       { borderRadius: 18, padding: 14, marginBottom: 10, maxWidth: "84%" },
+  bubbleAI:     { backgroundColor: C.card2, borderWidth: 1, borderColor: C.border, alignSelf: "flex-start", borderBottomLeftRadius: 4 },
+  bubbleUser:   { backgroundColor: C.flagRed, alignSelf: "flex-end", borderBottomRightRadius: 4 },
+  bubbleText:   { fontSize: 15, color: C.text, lineHeight: 22 },
+
+  errorCard:    { backgroundColor: C.redDim, borderRadius: 12, borderWidth: 1, borderColor: C.redLine, padding: 12, margin: 4 },
+  errorText:    { fontSize: 13, color: C.red, lineHeight: 18 },
+
+  finishBtn:    { marginHorizontal: 20, marginBottom: 8, backgroundColor: C.green, borderRadius: 14, padding: 16, alignItems: "center" },
+  finishBtnText:{ color: C.bg, fontSize: 16, fontWeight: "800" },
+
+  micArea:      { alignItems: "center", paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border },
+  micHint:      { fontSize: 12, color: C.muted, marginBottom: 10 },
+  micBtn:       { width: 76, height: 76, borderRadius: 38, backgroundColor: C.card2, borderWidth: 2, borderColor: C.goldLine, alignItems: "center", justifyContent: "center" },
+  micBtnRec:    { backgroundColor: C.redDim, borderColor: C.red },
+
+  doneWrap:     { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+  doneStar:     { fontSize: 64, marginBottom: 16 },
+  doneTitle:    { fontFamily: SERIF, fontSize: 26, fontWeight: "700", color: C.white, fontStyle: "italic", marginBottom: 6, textAlign: "center" },
+  doneXP:       { fontSize: 38, fontWeight: "900", color: C.gold, marginBottom: 16 },
+  doneStats:    { flexDirection: "row", gap: 32, marginBottom: 20 },
+  doneStat:     { alignItems: "center" },
+  doneStatNum:  { fontSize: 24, fontWeight: "800", color: C.white },
+  doneStatLabel:{ fontSize: 11, color: C.muted, marginTop: 2 },
+  doneSub:      { fontSize: 14, color: C.text, textAlign: "center", lineHeight: 22, marginBottom: 32 },
+  doneBtn:      { backgroundColor: C.gold, borderRadius: 14, paddingHorizontal: 32, paddingVertical: 16, alignItems: "center" },
+  doneBtnText:  { color: C.bg, fontSize: 16, fontWeight: "800" },
+});
