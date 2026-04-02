@@ -1,9 +1,8 @@
-﻿import React, { useState, useRef } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Animated } from "react-native";
+import React, { useState, useRef } from "react";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, Animated, Platform, StatusBar } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "../services/supabase";
-
-const C = { navy: "#070B18", navy2: "#0D1425", navy3: "#111D35", border: "#1E2E45", gold: "#C9A84C", goldL: "#E8C97A", goldBg: "rgba(201,168,76,0.10)", goldBr: "rgba(201,168,76,0.28)", red: "#CC0000", green: "#22C55E", greenBg: "rgba(34,197,94,0.10)", greenBr: "rgba(34,197,94,0.28)", white: "#FFFFFF", text: "#D4E4F4", muted: "#4A6480" };
+import { C, SAFE_TOP, SERIF } from "../theme";
 
 const QUESTIONS = [
   { q: "Wie heißt du?", opts: ["Ich heiße Sarah.", "Du heißt Sarah.", "Er heißen Max."], ans: 0 },
@@ -49,8 +48,8 @@ export default function PlacementScreen() {
     setTimeout(() => {
       if (qIdx < QUESTIONS.length - 1) {
         Animated.sequence([
-          Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }),
-          Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+          Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: Platform.OS !== "web" }),
+          Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: Platform.OS !== "web" }),
         ]).start();
         setTimeout(() => setQIdx(qIdx + 1), 150);
       } else {
@@ -86,32 +85,40 @@ export default function PlacementScreen() {
     const labels = { A1: "A1 — Survival", A2: "A2 — Living", B1: "B1 — Thinking", B2: "B2 — Arguing", C1: "C1 — Being" };
     return (
       <View style={S.container}>
-        <ScrollView contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 100 }}>
-          <Text style={{ fontSize: 24, fontWeight: "900", color: C.white, textAlign: "center", marginTop: 20 }}>Dein Resultat</Text>
+        <StatusBar barStyle="dark-content" />
+        <View style={{ height: SAFE_TOP }} />
+        <View style={{ flexDirection: "row", height: 3 }}>
+          <View style={{ flex: 1, backgroundColor: C.flagBlack }} />
+          <View style={{ flex: 1, backgroundColor: C.flagRed }} />
+          <View style={{ flex: 1, backgroundColor: C.flagGold }} />
+        </View>
 
-          <View style={{ backgroundColor: C.goldBg, borderWidth: 1, borderColor: C.goldBr, borderRadius: 20, padding: 32, alignItems: "center", gap: 12 }}>
+        <ScrollView contentContainerStyle={{ padding: 24, gap: 20, paddingBottom: 100 }}>
+          <Text style={{ fontSize: 24, fontWeight: "900", fontFamily: SERIF, color: C.text, textAlign: "center", marginTop: 20 }}>Dein Resultat</Text>
+
+          <View style={{ backgroundColor: C.goldDim, borderWidth: 1, borderColor: C.goldLine, borderRadius: 20, padding: 32, alignItems: "center", gap: 12 }}>
             <Text style={{ fontSize: 64 }}>⭐</Text>
-            <Text style={{ color: C.white, fontSize: 28, fontWeight: "900", textAlign: "center" }}>{labels[level]}</Text>
-            <Text style={{ color: C.goldL, fontSize: 16, fontStyle: "italic", marginTop: 8 }}>Du überlebst auf Deutsch.</Text>
+            <Text style={{ color: C.text, fontSize: 28, fontWeight: "900", fontFamily: SERIF, textAlign: "center" }}>{labels[level]}</Text>
+            <Text style={{ color: C.gold, fontSize: 16, fontStyle: "italic", marginTop: 8 }}>Du überlebst auf Deutsch.</Text>
             <Text style={{ color: C.gold, fontSize: 40, fontWeight: "900", marginTop: 16 }}>{score}/100</Text>
           </View>
 
-          <TouchableOpacity 
-            style={{ backgroundColor: C.gold, borderRadius: 14, padding: 18, alignItems: "center" }} 
+          <TouchableOpacity
+            style={{ backgroundColor: C.gold, borderRadius: 14, padding: 18, alignItems: "center" }}
             onPress={handleStart}
             disabled={saving}
           >
-            <Text style={{ color: "#070B18", fontSize: 16, fontWeight: "900" }}>
+            <Text style={{ color: C.white, fontSize: 16, fontWeight: "900" }}>
               {saving ? "Wird gespeichert..." : `✓ Starte mit ${level}`}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={{ backgroundColor: C.navy2, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 16, alignItems: "center" }} 
+          <TouchableOpacity
+            style={{ backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 16, alignItems: "center" }}
             onPress={() => router.replace("/")}
             disabled={saving}
           >
-            <Text style={{ color: C.text, fontSize: 15, fontWeight: "700" }}>← Zurück</Text>
+            <Text style={{ color: C.textSec, fontSize: 15, fontWeight: "700" }}>← Zurück</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -124,31 +131,39 @@ export default function PlacementScreen() {
 
   return (
     <View style={S.container}>
-      <View style={{ paddingHorizontal: 18, paddingTop: 52, paddingBottom: 12 }}>
+      <StatusBar barStyle="dark-content" />
+      <View style={{ height: SAFE_TOP }} />
+      <View style={{ flexDirection: "row", height: 3 }}>
+        <View style={{ flex: 1, backgroundColor: C.flagBlack }} />
+        <View style={{ flex: 1, backgroundColor: C.flagRed }} />
+        <View style={{ flex: 1, backgroundColor: C.flagGold }} />
+      </View>
+
+      <View style={{ paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <Text style={{ color: C.white, fontSize: 15, fontWeight: "700" }}>Placement Test</Text>
+          <Text style={{ color: C.text, fontSize: 15, fontWeight: "700", fontFamily: SERIF }}>Placement Test</Text>
           <Text style={{ fontSize: 12, color: C.muted }}>{qIdx + 1}/{QUESTIONS.length}</Text>
         </View>
       </View>
 
-      <View style={{ height: 3, backgroundColor: C.navy3 }}>
+      <View style={{ height: 3, backgroundColor: C.bg3 }}>
         <View style={{ height: 3, backgroundColor: C.gold, width: `${progress}%` }} />
       </View>
 
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
         <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 60 }}>
           <Text style={{ color: C.muted, fontSize: 11, fontWeight: "700", marginBottom: 12 }}>Frage {qIdx + 1}</Text>
-          <Text style={{ color: C.white, fontSize: 22, fontWeight: "800", marginBottom: 20, lineHeight: 30 }}>{q.q}</Text>
+          <Text style={{ color: C.text, fontSize: 22, fontWeight: "800", fontFamily: SERIF, marginBottom: 20, lineHeight: 30 }}>{q.q}</Text>
 
           <View style={{ gap: 12 }}>
             {q.opts.map((opt, oi) => {
               const chosen = answered[qIdx] === oi;
               const correct = oi === q.ans;
               const show = isAnswered;
-              let bg = C.navy2, br = C.border, tx = C.text;
-              if (show && correct) { bg = C.greenBg; br = C.greenBr; tx = C.green; }
-              else if (show && chosen && !correct) { bg = C.red; br = C.red; tx = C.white; }
-              else if (chosen && !show) { bg = C.goldBg; br = C.goldBr; tx = C.gold; }
+              let bg = C.card, br = C.border, tx = C.text;
+              if (show && correct) { bg = C.greenDim; br = C.greenLine; tx = C.green; }
+              else if (show && chosen && !correct) { bg = C.redDim; br = C.red; tx = C.red; }
+              else if (chosen && !show) { bg = C.goldDim; br = C.goldLine; tx = C.gold; }
               return (
                 <TouchableOpacity key={oi} onPress={() => handleAnswer(oi)} disabled={isAnswered} style={{ backgroundColor: bg, borderColor: br, borderWidth: 1, borderRadius: 12, padding: 16 }}>
                   <Text style={{ fontSize: 15, fontWeight: "500", color: tx }}>{opt}</Text>
@@ -162,4 +177,4 @@ export default function PlacementScreen() {
   );
 }
 
-const S = StyleSheet.create({ container: { flex: 1, backgroundColor: C.navy } });
+const S = StyleSheet.create({ container: { flex: 1, backgroundColor: C.bg } });

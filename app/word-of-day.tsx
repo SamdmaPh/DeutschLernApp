@@ -1,17 +1,9 @@
 import {
   View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, StatusBar, Platform, Share
+  StyleSheet, StatusBar, Share,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
-
-const C = {
-  navy:       "#070B18", navy2: "#0A1020", navy3: "#0F1628",
-  border:     "#1E2D45",
-  gold:       "#C9A84C", goldBg: "rgba(201,168,76,0.10)", goldBorder: "rgba(201,168,76,0.25)",
-  red:        "#CC0000", redBg: "rgba(204,0,0,0.10)",
-  black:      "#111111", white: "#FFFFFF", text: "#E2E8F0", muted: "#64748B",
-};
-const SAFE_TOP = Platform.OS === "ios" ? 54 : 30;
+import { C, SAFE_TOP, SERIF } from "../theme";
 
 interface GermanWord {
   word: string;
@@ -310,14 +302,14 @@ export default function WordOfDayScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <View style={{ height: SAFE_TOP }} />
 
       {/* Flag bar */}
       <View style={{ flexDirection: "row", height: 3 }}>
-        <View style={{ flex: 1, backgroundColor: C.black }} />
-        <View style={{ flex: 1, backgroundColor: C.red }} />
-        <View style={{ flex: 1, backgroundColor: C.gold }} />
+        <View style={{ flex: 1, backgroundColor: C.flagBlack }} />
+        <View style={{ flex: 1, backgroundColor: C.flagRed }} />
+        <View style={{ flex: 1, backgroundColor: C.flagGold }} />
       </View>
 
       {/* Header */}
@@ -444,46 +436,42 @@ export default function WordOfDayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: C.navy },
+  container:        { flex: 1, backgroundColor: C.bg },
   header:           { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16 },
   backText:         { color: C.gold, fontSize: 16, fontWeight: "600" },
-  headerTitle:      { color: C.white, fontSize: 16, fontWeight: "700" },
+  headerTitle:      { fontFamily: SERIF, color: C.text, fontSize: 18, fontWeight: "700" },
   shareText:        { color: C.muted, fontSize: 14 },
 
-  // Hero
-  heroCard:         { marginHorizontal: 20, backgroundColor: C.navy2, borderRadius: 24, borderWidth: 1, borderColor: C.border, padding: 28, marginBottom: 16, alignItems: "center" },
+  heroCard:         { marginHorizontal: 20, backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.border, padding: 28, marginBottom: 16, alignItems: "center" },
   tagPill:          { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, marginBottom: 20 },
   tagText:          { fontSize: 11, fontWeight: "800", letterSpacing: 2, textTransform: "uppercase" },
-  heroWord:         { fontSize: 52, fontWeight: "900", color: C.white, letterSpacing: -1, textAlign: "center" },
+  heroWord:         { fontFamily: SERIF, fontSize: 48, fontWeight: "900", color: C.text, letterSpacing: -1, textAlign: "center" },
   pronunciation:    { color: C.muted, fontSize: 16, marginTop: 8, fontStyle: "italic", letterSpacing: 1 },
   partsRow:         { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center", marginBottom: 16 },
-  partBox:          { backgroundColor: C.navy3, borderRadius: 10, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" },
+  partBox:          { backgroundColor: C.bg2, borderRadius: 10, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" },
   partWord:         { color: C.gold, fontSize: 15, fontWeight: "800" },
   partMeaning:      { color: C.muted, fontSize: 11, marginTop: 2 },
   literalRow:       { flexDirection: "row", alignItems: "flex-start", flexWrap: "wrap" },
   literalLabel:     { color: C.gold, fontSize: 11, fontWeight: "800", letterSpacing: 2 },
   literalText:      { color: C.muted, fontSize: 13, flex: 1, flexWrap: "wrap" },
 
-  // Sections
   section:          { marginHorizontal: 20, marginBottom: 16 },
   sectionLabelRow:  { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
   sectionAccent:    { width: 3, height: 14, borderRadius: 2 },
   sectionLabel:     { color: C.muted, fontSize: 10, fontWeight: "800", letterSpacing: 2 },
-  meaningText:      { color: C.text, fontSize: 16, lineHeight: 26, backgroundColor: C.navy2, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 20 },
-  beautyBox:        { backgroundColor: C.navy2, borderRadius: 16, borderWidth: 1, borderColor: C.goldBorder, padding: 20, flexDirection: "row", gap: 12 },
+  meaningText:      { color: C.text, fontSize: 16, lineHeight: 26, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 20 },
+  beautyBox:        { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.goldLine, padding: 20, flexDirection: "row", gap: 12 },
   beautyQuote:      { color: C.gold, fontSize: 48, lineHeight: 48, fontWeight: "900", marginTop: -8 },
   beautyText:       { flex: 1, color: C.text, fontSize: 15, lineHeight: 24, fontStyle: "italic" },
-  exampleBox:       { backgroundColor: C.navy2, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 20, gap: 12 },
+  exampleBox:       { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 20, gap: 12 },
   exampleDivider:   { height: 1, backgroundColor: C.border },
-  exampleDE:        { color: C.white, fontSize: 18, fontWeight: "700", lineHeight: 26 },
+  exampleDE:        { color: C.text, fontSize: 18, fontWeight: "700", lineHeight: 26 },
   exampleEN:        { color: C.muted, fontSize: 15, fontStyle: "italic", lineHeight: 22 },
 
-  // Word chips
-  wordChip:         { backgroundColor: C.navy2, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: "center", minWidth: 110 },
+  wordChip:         { backgroundColor: C.card, borderRadius: 12, borderWidth: 1, padding: 12, alignItems: "center", minWidth: 110 },
   wordChipText:     { fontSize: 16, fontWeight: "800" },
   wordChipTag:      { color: C.muted, fontSize: 10, marginTop: 4, letterSpacing: 1 },
 
-  // Share
-  shareBtn:         { marginHorizontal: 20, height: 52, borderRadius: 14, backgroundColor: C.goldBg, borderWidth: 1, borderColor: C.goldBorder, alignItems: "center", justifyContent: "center" },
+  shareBtn:         { marginHorizontal: 20, height: 52, borderRadius: 14, backgroundColor: C.goldDim, borderWidth: 1, borderColor: C.goldLine, alignItems: "center", justifyContent: "center" },
   shareBtnText:     { color: C.gold, fontSize: 15, fontWeight: "700" },
 });

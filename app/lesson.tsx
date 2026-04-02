@@ -1,569 +1,1180 @@
-﻿import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import {
+  View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  TextInput, StatusBar, Image,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { LESSON_DATA_A1 } from "../data/lessonData";
+import { ALL_STATIC_LESSONS } from "../data/lessonData";
+import { SITUATION_IMAGES } from "../data/images";
+import { Progress } from "../services/progress";
+import { AI, ChatMessage } from "../services/ai";
+import { TTS } from "../services/tts";
+import { ElevenLabs, CHARACTER_VOICES } from "../services/elevenlabs";
+import { SRS } from "../services/srs";
+import { C, SAFE_TOP, SERIF } from "../theme";
 
-const PHASES = ["Goals", "Listening", "Grammar", "Vocabulary", "Exercises", "Culture", "Finish"];
-const PHASE_ICONS = ["🎯", "👂", "📚", "💬", "✍️", "🌍", "✅"];
-const PHASE_LABELS = ["Ziele", "Hören", "Grammatik", "Vokabeln", "Übungen", "Kultur", "Fertig"];
-
-export default function LessonScreen() {
-  const { lessonId } = useLocalSearchParams();
-  const router = useRouter();
-  const [currentPhase, setCurrentPhase] = useState(0);
-  const [completedPhases, setCompletedPhases] = useState({});
-
-  const lesson = LESSON_DATA_A1.find((l) => l.id === lessonId);
-
-  if (!lesson) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Lektion nicht gefunden</Text>
-      </View>
-    );
+// Web-compatible audio player
+async function playBase64Audio(base64: string) {
+  try {
+    const audio = new Audio(`data:audio/mp3;base64,${base64}`);
+    await audio.play();
+  } catch (e) {
+    console.log("Audio playback error:", e);
   }
+}
 
-  const togglePhase = (index) => {
-    setCurrentPhase(index);
-  };
-
-  const markPhaseComplete = (index) => {
-    setCompletedPhases({ ...completedPhases, [index]: true });
-    if (index < PHASES.length - 1) {
-      setCurrentPhase(index + 1);
-    }
-  };
-
-  const renderGoalsPhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScrollIndicator={false}>
-      <Text style={styles.phaseTitle}>Lernziele dieser Lektion</Text>
-      <Text style={styles.phaseSubtitle}>{lesson.title}</Text>
-
-      <View style={styles.goalsGrid}>
-        {lesson.learning_objectives?.map((goal, idx) => (
-          <View key={idx} style={styles.goalCard}>
-            <Text style={styles.goalBullet}>✓</Text>
-            <Text style={styles.goalText}>{goal}</Text>
-          </View>
-        ))}
-      </View>
-
-      <Text style={styles.contextText}>
-        {lesson.learning_path_context || "Meister diese Ziele um zur nächsten Phase zu gehen."}
-      </Text>
-
-      <TouchableOpacity
-        style={styles.phaseButton}
-        onPress={() => markPhaseComplete(0)}
-      >
-        <Text style={styles.phaseButtonText}>Ich verstehe die Ziele →</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderListeningPhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScrollIndicator={false}>
-      <Text style={styles.phaseTitle}>Hörverstehen</Text>
-      <Text style={styles.phaseSubtitle}>{lesson.listening?.title}</Text>
-
-      <View style={styles.audioCard}>
-        <Text style={styles.audioIcon}>🎧</Text>
-        <Text style={styles.audioLabel}>Audio-Dialog</Text>
-        <Text style={styles.audioNote}>(Tippe zum Abspielen)</Text>
-      </View>
-
-      <View style={styles.transcriptCard}>
-        <Text style={styles.transcriptTitle}>Transkript (Deutsch)</Text>
-        <Text style={styles.transcriptText}>{lesson.listening?.transcript}</Text>
-      </View>
-
-      <View style={styles.translationCard}>
-        <Text style={styles.translationTitle}>Übersetzung (English)</Text>
-        <Text style={styles.translationText}>{lesson.listening?.english_translation}</Text>
-      </View>
-
-      <View style={styles.vocabHighlight}>
-        <Text style={styles.vocabTitle}>Wichtige Vokabeln in diesem Dialog:</Text>
-        {lesson.listening?.vocabulary_highlighted?.map((vocab, idx) => {
-          const [de, en] = vocab.split(" :: ");
-          return (
-            <View key={idx} style={styles.vocabItem}>
-              <Text style={styles.vocabDe}>{de}</Text>
-              <Text style={styles.vocabEn}>= {en}</Text>
-            </View>
-          );
-        })}
-      </View>
-
-      <TouchableOpacity
-        style={styles.phaseButton}
-        onPress={() => markPhaseComplete(1)}
-      >
-        <Text style={styles.phaseButtonText}>Ich verstehe den Dialog →</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderGrammarPhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScrollIndicator={false}>
-      <Text style={styles.phaseTitle}>Grammatik</Text>
-      <Text style={styles.phaseSubtitle}>{lesson.grammar?.concept}</Text>
-
-      <View style={styles.ruleCard}>
-        <Text style={styles.ruleTitle}>Die Regel</Text>
-        <Text style={styles.ruleText}>{lesson.grammar?.rule}</Text>
-      </View>
-
-      <View style={styles.patternCard}>
-        <Text style={styles.patternTitle}>Muster (Pattern)</Text>
-        {lesson.grammar?.patterns?.map((p, idx) => (
-          <View key={idx} style={styles.patternItem}>
-            {p.person && (
-              <View style={styles.patternRow}>
-                <Text style={styles.patternLabel}>{p.person}</Text>
-                <Text style={styles.patternForm}>{p.conjugation || p.sound || p.form}</Text>
-                <Text style={styles.patternExample}>{p.example}</Text>
-              </View>
-            )}
-            {p.sound && (
-              <View>
-                <Text style={styles.soundLabel}>{p.sound}</Text>
-                <View style={styles.examplesContainer}>
-                  {p.examples?.map((ex, i) => (
-                    <Text key={i} style={styles.exampleText}>• {ex}</Text>
-                  ))}
-                </View>
-                <Text style={styles.trickText}>💡 {p.english_trick}</Text>
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-
-      {lesson.grammar?.common_mistakes && (
-        <View style={styles.mistakesCard}>
-          <Text style={styles.mistakesTitle}>⚠️ Häufige Fehler</Text>
-          {lesson.grammar.common_mistakes.map((mistake, idx) => (
-            <View key={idx} style={styles.mistakeItem}>
-              <Text style={styles.mistakeWrong}>❌ FALSCH: {mistake.wrong}</Text>
-              <Text style={styles.mistakeRight}>✅ RICHTIG: {mistake.right}</Text>
-              <Text style={styles.mistakeExplanation}>{mistake.explanation}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.mnemonicCard}>
-        <Text style={styles.mnemonicTitle}>🧠 Merkhilfe</Text>
-        <Text style={styles.mnemonicText}>{lesson.grammar?.mnemonic || lesson.mnemonic}</Text>
-      </View>
-
-      <TouchableOpacity
-        style={styles.phaseButton}
-        onPress={() => markPhaseComplete(2)}
-      >
-        <Text style={styles.phaseButtonText}>Ich verstehe die Grammatik →</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderVocabularyPhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScrollIndicator={false}>
-      <Text style={styles.phaseTitle}>Vokabeln</Text>
-
-      {lesson.vocabulary?.core && (
-        <View style={styles.vocabSection}>
-          <Text style={styles.vocabSectionTitle}>🔴 Kernvokabeln (MUSS lernen)</Text>
-          {lesson.vocabulary.core.map((vocab, idx) => {
-            const [de, en] = vocab.split(" :: ");
-            return (
-              <View key={idx} style={styles.vocabRow}>
-                <Text style={styles.vocabDeMain}>{de}</Text>
-                <Text style={styles.vocabEnMain}>{en}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {lesson.vocabulary?.supporting && (
-        <View style={styles.vocabSection}>
-          <Text style={styles.vocabSectionTitle}>🟡 Unterstützende Vokabeln</Text>
-          {lesson.vocabulary.supporting.map((vocab, idx) => {
-            const [de, en] = vocab.split(" :: ");
-            return (
-              <View key={idx} style={styles.vocabRowSupporting}>
-                <Text style={styles.vocabDeSupporting}>{de}</Text>
-                <Text style={styles.vocabEnSupporting}>{en}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {lesson.vocabulary?.phrases && (
-        <View style={styles.vocabSection}>
-          <Text style={styles.vocabSectionTitle}>💬 Nützliche Phrasen</Text>
-          {lesson.vocabulary.phrases.map((phrase, idx) => {
-            const [de, en] = phrase.split(" :: ");
-            return (
-              <View key={idx} style={styles.phraseRow}>
-                <Text style={styles.phraseDe}>"{de}"</Text>
-                <Text style={styles.phraseEn}>{en}</Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={styles.phaseButton}
-        onPress={() => markPhaseComplete(3)}
-      >
-        <Text style={styles.phaseButtonText}>Vokabeln gelernt →</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderExercisesPhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScreenIndicator={false}>
-      <Text style={styles.phaseTitle}>Übungen</Text>
-      <Text style={styles.exerciseSubtitle}>
-        Recognition (leicht) → Recall (mittel) → Production (schwer)
-      </Text>
-
-      {lesson.exercises?.map((exercise, idx) => (
-        <View key={idx} style={styles.exerciseCard}>
-          <View style={styles.difficultyBadge}>
-            <Text style={styles.difficultyText}>
-              {exercise.type === "recognition" && "🎯 Wiederkennen (Leicht)"}
-              {exercise.type === "recall" && "🧠 Abrufen (Mittel)"}
-              {exercise.type === "production" && "✍️ Produktion (Schwer)"}
-            </Text>
-          </View>
-          <Text style={styles.exerciseInstruction}>{exercise.instruction}</Text>
-
-          {exercise.tasks?.map((task, taskIdx) => (
-            <View key={taskIdx} style={styles.taskBox}>
-              <Text style={styles.taskQuestion}>
-                {task.question || task.german || task.word || task.prompt}
-              </Text>
-              {task.options && (
-                <View style={styles.optionsContainer}>
-                  {task.options.map((opt, optIdx) => (
-                    <TouchableOpacity key={optIdx} style={styles.optionButton}>
-                      <Text style={styles.optionText}>{opt}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-              {task.context && <Text style={styles.taskContext}>Kontext: {task.context}</Text>}
-            </View>
-          ))}
-        </View>
-      ))}
-
-      <TouchableOpacity
-        style={styles.phaseButton}
-        onPress={() => markPhaseComplete(4)}
-      >
-        <Text style={styles.phaseButtonText}>Übungen abgeschlossen →</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderCulturePhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScrollIndicator={false}>
-      <Text style={styles.phaseTitle}>Kultur & Kontext</Text>
-
-      <View style={styles.cultureCard}>
-        <Text style={styles.cultureTitle}>🇩🇪 Kulturelle Notiz</Text>
-        <Text style={styles.cultureText}>{lesson.culture_note}</Text>
-      </View>
-
-      <View style={styles.realWorldCard}>
-        <Text style={styles.realWorldTitle}>🌍 Wo du das brauchst</Text>
-        <Text style={styles.realWorldText}>{lesson.real_world_use}</Text>
-      </View>
-
-      {lesson.goethe_alignment && (
-        <View style={styles.goethCard}>
-          <Text style={styles.goethTitle}>🎓 Goethe-Institut Vorbereitung</Text>
-          <Text style={styles.goethModule}>Modul: {lesson.goethe_alignment.module}</Text>
-          <Text style={styles.goethSkill}>Fähigkeit: {lesson.goethe_alignment.skill}</Text>
-          <Text style={styles.goethTask}>Aufgabentyp: {lesson.goethe_alignment.task_type}</Text>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={styles.phaseButton}
-        onPress={() => markPhaseComplete(5)}
-      >
-        <Text style={styles.phaseButtonText}>Kultur verstanden →</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderFinishPhase = () => (
-    <ScrollView style={styles.phaseContainer} showsVerticalScrollIndicator={false}>
-      <View style={styles.finishCard}>
-        <Text style={styles.finishIcon}>🎉</Text>
-        <Text style={styles.finishTitle}>Lektion abgeschlossen!</Text>
-        <Text style={styles.finishXP}>+{lesson.xp_reward} XP</Text>
-        <Text style={styles.finishText}>
-          Du hast diese Lektion gemeistert. Gut gemacht!
-        </Text>
-      </View>
-
-      <View style={styles.progressCard}>
-        <Text style={styles.progressTitle}>Dein Fortschritt</Text>
-        <View style={styles.progressBar}>
-          <View
-            style={{
-              ...styles.progressFill,
-              width: `${((Object.keys(completedPhases).length + 1) / 7) * 100}%`,
-            }}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {Object.keys(completedPhases).length + 1} / 7 Phasen abgeschlossen
-        </Text>
-      </View>
-
-      <TouchableOpacity
-        style={styles.finishButton}
-        onPress={() => {
-          router.back();
-        }}
-      >
-        <Text style={styles.finishButtonText}>Zur Lektionsliste zurück</Text>
-      </TouchableOpacity>
-    </ScrollView>
-  );
-
-  const renderPhase = () => {
-    switch (currentPhase) {
-      case 0: return renderGoalsPhase();
-      case 1: return renderListeningPhase();
-      case 2: return renderGrammarPhase();
-      case 3: return renderVocabularyPhase();
-      case 4: return renderExercisesPhase();
-      case 5: return renderCulturePhase();
-      case 6: return renderFinishPhase();
-      default: return null;
-    }
-  };
-
+// ═══ XP TRACKER ═══
+function XPPopup({ amount }: { amount: number }) {
+  if (!amount) return null;
   return (
-    <View style={styles.outerContainer}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>← Zurück</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{lesson.title}</Text>
-        <Text style={styles.headerMeta}>{lesson.level} • {lesson.duration} min</Text>
-      </View>
-
-      {/* Phase Navigator */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.phaseNav}
-        contentContainerStyle={styles.phaseNavContent}
-      >
-        {PHASES.map((phase, idx) => (
-          <TouchableOpacity
-            key={idx}
-            style={[
-              styles.phaseButton,
-              currentPhase === idx && styles.phaseButtonActive,
-              completedPhases[idx] && styles.phaseButtonCompleted,
-            ]}
-            onPress={() => togglePhase(idx)}
-          >
-            <Text style={styles.phaseIcon}>{PHASE_ICONS[idx]}</Text>
-            <Text
-              style={[
-                styles.phaseButtonLabel,
-                currentPhase === idx && styles.phaseButtonLabelActive,
-              ]}
-            >
-              {PHASE_LABELS[idx]}
-            </Text>
-            {completedPhases[idx] && <Text style={styles.completedMark}>✓</Text>}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Phase Content */}
-      {renderPhase()}
+    <View style={s.xpPopup}>
+      <Text style={s.xpPopupText}>+{amount} XP</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  outerContainer: { flex: 1, backgroundColor: "#FAF8F3" },
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
-  errorText: { fontSize: 18, color: "#CC0000", fontWeight: "600" },
+export default function LessonScreen() {
+  const { lessonId } = useLocalSearchParams();
+  const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [totalXP, setTotalXP] = useState(0);
+  const [lastXP, setLastXP] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, any>>({});
+  const [matched, setMatched] = useState<number[]>([]);
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const [wordOrder, setWordOrder] = useState<string[]>([]);
+  const [wordOrderChecked, setWordOrderChecked] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [selfRating, setSelfRating] = useState(0);
+  const [matchSelected, setMatchSelected] = useState<number | null>(null);
+  const [matchPairs, setMatchPairs] = useState<Record<number, number>>({});
+  const [showNav, setShowNav] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [tappedWord, setTappedWord] = useState<{ word: string; meaning: string } | null>(null);
+  const [writeAnswers, setWriteAnswers] = useState<Record<number, string>>({});
+  const [writeChecked, setWriteChecked] = useState<Record<number, boolean>>({});
+  const [pronIdx, setPronIdx] = useState(0);
+  const [pronPlaying, setPronPlaying] = useState(false);
+  const [pronDone, setPronDone] = useState<number[]>([]);
+  const [sceneIdx, setSceneIdx] = useState(0);
+  const scrollRef = React.useRef<ScrollView>(null);
 
-  /* Header */
-  header: { backgroundColor: "#070B18", paddingTop: 12, paddingBottom: 16, paddingHorizontal: 16 },
-  backButton: { fontSize: 14, color: "#C9A84C", fontWeight: "600", marginBottom: 8 },
-  headerTitle: { fontSize: 22, fontWeight: "700", color: "#FFFFFF", marginBottom: 4 },
-  headerMeta: { fontSize: 12, color: "#999999" },
+  const lesson = ALL_STATIC_LESSONS.find((l) => l.id === lessonId) as any;
+  if (!lesson) {
+    return (
+      <View style={s.center}>
+        <Text style={s.errorText}>Lesson not found</Text>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={s.errorLink}>← Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-  /* Phase Navigator */
-  phaseNav: { backgroundColor: "#FFFFFF", borderBottomWidth: 1, borderBottomColor: "#E5E5E5" },
-  phaseNavContent: { paddingHorizontal: 8, paddingVertical: 8 },
-  phaseButton: {
-    marginHorizontal: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: "#F5F5F5",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  phaseButtonActive: { backgroundColor: "#C9A84C", borderWidth: 2, borderColor: "#C9A84C" },
-  phaseButtonCompleted: { backgroundColor: "#E8F5E9", borderWidth: 1, borderColor: "#4CAF50" },
-  phaseIcon: { fontSize: 16, marginBottom: 2 },
-  phaseButtonLabel: { fontSize: 11, color: "#666", fontWeight: "600" },
-  phaseButtonLabelActive: { color: "#FFFFFF" },
-  completedMark: { fontSize: 12, color: "#4CAF50", fontWeight: "700" },
+  const img = SITUATION_IMAGES[lesson.id] || "";
 
-  /* Phase Container */
-  phaseContainer: { flex: 1, paddingHorizontal: 16, paddingVertical: 20 },
+  // ═══ HELPER: Add XP ═══
+  const addXP = (amount: number) => {
+    setTotalXP(prev => prev + amount);
+    setLastXP(amount);
+    setTimeout(() => setLastXP(0), 1500);
+  };
 
-  /* Goals Phase */
-  phaseTitle: { fontSize: 28, fontWeight: "700", color: "#1C1C2E", marginBottom: 8 },
-  phaseSubtitle: { fontSize: 16, color: "#666666", marginBottom: 24, fontWeight: "500" },
-  goalsGrid: { marginBottom: 24 },
-  goalCard: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: "#B8922A",
-  },
-  goalBullet: { fontSize: 20, color: "#4CAF50", marginRight: 12, fontWeight: "600" },
-  goalText: { fontSize: 15, color: "#1C1C2E", lineHeight: 22, flex: 1, fontWeight: "500" },
-  contextText: { fontSize: 14, color: "#999999", fontStyle: "italic", marginBottom: 16 },
+  // ═══ BUILD 12 CARDS ═══
+  const cards: any[] = [];
 
-  /* Listening Phase */
-  audioCard: {
-    backgroundColor: "#E3F2FD",
-    borderRadius: 12,
-    padding: 24,
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  audioIcon: { fontSize: 40, marginBottom: 8 },
-  audioLabel: { fontSize: 16, fontWeight: "600", color: "#1976D2" },
-  audioNote: { fontSize: 12, color: "#1976D2", marginTop: 4 },
-  transcriptCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, marginBottom: 16 },
-  transcriptTitle: { fontSize: 14, fontWeight: "700", color: "#1C1C2E", marginBottom: 12 },
-  transcriptText: { fontSize: 15, color: "#333333", lineHeight: 24 },
-  translationCard: { backgroundColor: "#F5F5F5", borderRadius: 12, padding: 16, marginBottom: 16 },
-  translationTitle: { fontSize: 14, fontWeight: "700", color: "#666666", marginBottom: 12 },
-  translationText: { fontSize: 14, color: "#666666", lineHeight: 22, fontStyle: "italic" },
-  vocabHighlight: { backgroundColor: "#FFF9C4", borderRadius: 12, padding: 16, marginBottom: 16 },
-  vocabTitle: { fontSize: 14, fontWeight: "700", color: "#F57F17", marginBottom: 12 },
-  vocabItem: { flexDirection: "row", marginBottom: 8 },
-  vocabDe: { fontSize: 14, fontWeight: "600", color: "#1C1C2E", flex: 1 },
-  vocabEn: { fontSize: 14, color: "#666666", fontStyle: "italic" },
+  // 1. HOOK
+  cards.push({ type: "hook", title: lesson.title, description: lesson.description, image: img });
 
-  /* Grammar Phase */
-  ruleCard: { backgroundColor: "#F3E5F5", borderRadius: 12, padding: 16, marginBottom: 20 },
-  ruleTitle: { fontSize: 14, fontWeight: "700", color: "#6A1B9A", marginBottom: 8 },
-  ruleText: { fontSize: 15, color: "#1C1C2E", lineHeight: 23 },
-  patternCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, marginBottom: 20 },
-  patternTitle: { fontSize: 14, fontWeight: "700", color: "#1C1C2E", marginBottom: 16 },
-  patternItem: { marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#E5E5E5" },
-  patternRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  patternLabel: { fontSize: 13, fontWeight: "600", color: "#B8922A", width: 60 },
-  patternForm: { fontSize: 16, fontWeight: "700", color: "#1C1C2E", width: 100 },
-  patternExample: { fontSize: 14, color: "#666666", flex: 1 },
-  soundLabel: { fontSize: 13, fontWeight: "700", color: "#B8922A", marginBottom: 8 },
-  examplesContainer: { marginLeft: 8, marginBottom: 8 },
-  exampleText: { fontSize: 13, color: "#333333", lineHeight: 20 },
-  trickText: { fontSize: 13, color: "#F57F17", fontWeight: "600", marginTop: 6 },
-  mistakesCard: { backgroundColor: "#FFEBEE", borderRadius: 12, padding: 16, marginBottom: 20 },
-  mistakesTitle: { fontSize: 14, fontWeight: "700", color: "#C62828", marginBottom: 12 },
-  mistakeItem: { marginBottom: 12 },
-  mistakeWrong: { fontSize: 13, color: "#C62828", fontWeight: "600", marginBottom: 4 },
-  mistakeRight: { fontSize: 13, color: "#2E7D32", fontWeight: "600", marginBottom: 4 },
-  mistakeExplanation: { fontSize: 12, color: "#666666", fontStyle: "italic" },
-  mnemonicCard: { backgroundColor: "#E8F5E9", borderRadius: 12, padding: 16, marginBottom: 20 },
-  mnemonicTitle: { fontSize: 14, fontWeight: "700", color: "#1B5E20", marginBottom: 8 },
-  mnemonicText: { fontSize: 15, color: "#1C1C2E", lineHeight: 23, fontWeight: "500" },
+  // 2. LISTEN
+  if (lesson.listening?.transcript) {
+    cards.push({ type: "listen", title: lesson.listening.title, transcript: lesson.listening.transcript, translation: lesson.listening.english_translation, highlights: lesson.listening.vocabulary_highlighted });
+  }
 
-  /* Vocabulary Phase */
-  vocabSection: { marginBottom: 24 },
-  vocabSectionTitle: { fontSize: 15, fontWeight: "700", color: "#1C1C2E", marginBottom: 12 },
-  vocabRow: {
-    flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#2196F3",
-  },
-  vocabDeMain: { fontSize: 15, fontWeight: "700", color: "#1C1C2E", flex: 1 },
-  vocabEnMain: { fontSize: 14, color: "#666666", fontStyle: "italic" },
-  vocabRowSupporting: {
-    flexDirection: "row",
-    backgroundColor: "#F9F9F9",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 6,
-  },
-  vocabDeSupporting: { fontSize: 14, fontWeight: "600", color: "#333333", flex: 1 },
-  vocabEnSupporting: { fontSize: 13, color: "#888888", fontStyle: "italic" },
-  phraseRow: { marginBottom: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#E5E5E5" },
-  phraseDe: { fontSize: 15, fontWeight: "700", color: "#1C1C2E", marginBottom: 4 },
-  phraseEn: { fontSize: 13, color: "#666666", fontStyle: "italic" },
+  // 3. COMPREHENSION — global understanding
+  const firstTask = lesson.exercises?.[0]?.tasks?.[0];
+  if (firstTask?.options) {
+    cards.push({ type: "comprehension", question: firstTask.question, options: firstTask.options, answer: firstTask.answer ?? firstTask.correct ?? 0 });
+  }
 
-  /* Exercises Phase */
-  exerciseSubtitle: { fontSize: 14, color: "#666666", marginBottom: 16 },
-  exerciseCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, marginBottom: 16 },
-  difficultyBadge: { backgroundColor: "#FFF3E0", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 12 },
-  difficultyText: { fontSize: 12, fontWeight: "700", color: "#E65100" },
-  exerciseInstruction: { fontSize: 15, fontWeight: "600", color: "#1C1C2E", marginBottom: 12 },
-  taskBox: { backgroundColor: "#F5F5F5", borderRadius: 8, padding: 12, marginBottom: 12 },
-  taskQuestion: { fontSize: 14, fontWeight: "600", color: "#1C1C2E", marginBottom: 12 },
-  optionsContainer: { marginBottom: 12 },
-  optionButton: { backgroundColor: "#FFFFFF", borderRadius: 8, borderWidth: 1, borderColor: "#DDD", paddingHorizontal: 12, paddingVertical: 10, marginBottom: 6 },
-  optionText: { fontSize: 13, color: "#333333" },
-  taskContext: { fontSize: 12, color: "#999999", fontStyle: "italic" },
+  // 4. MATCH — connect words
+  if (lesson.vocabulary?.core) {
+    const matchWords = lesson.vocabulary.core.slice(0, 5).map((w: string) => {
+      const [de, en] = w.split("::").map((s: string) => s.trim());
+      return { de, en };
+    });
+    cards.push({ type: "match", words: matchWords });
+  }
 
-  /* Culture Phase */
-  cultureCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: "#B8922A" },
-  cultureTitle: { fontSize: 14, fontWeight: "700", color: "#1C1C2E", marginBottom: 8 },
-  cultureText: { fontSize: 14, color: "#333333", lineHeight: 22 },
-  realWorldCard: { backgroundColor: "#E3F2FD", borderRadius: 12, padding: 16, marginBottom: 16 },
-  realWorldTitle: { fontSize: 14, fontWeight: "700", color: "#1565C0", marginBottom: 8 },
-  realWorldText: { fontSize: 14, color: "#0D47A1", lineHeight: 22 },
-  goethCard: { backgroundColor: "#F3E5F5", borderRadius: 12, padding: 16 },
-  goethTitle: { fontSize: 14, fontWeight: "700", color: "#6A1B9A", marginBottom: 12 },
-  goethModule: { fontSize: 13, color: "#4A148C", marginBottom: 6, fontWeight: "600" },
-  goethSkill: { fontSize: 13, color: "#4A148C", marginBottom: 6 },
-  goethTask: { fontSize: 13, color: "#4A148C" },
+  // 5. PRONUNCIATION — Listen & Repeat with key phrases
+  if (lesson.vocabulary?.phrases) {
+    const pronWords = lesson.vocabulary.phrases.slice(0, 4).map((p: string) => {
+      const [de, en] = p.split("::").map((s: string) => s.trim());
+      return { de, en };
+    });
+    cards.push({ type: "pronunciation", words: pronWords, rules: lesson.grammar?.patterns?.slice(0, 3) });
+  }
 
-  /* Finish Phase */
-  finishCard: { backgroundColor: "#E8F5E9", borderRadius: 12, padding: 24, alignItems: "center", marginBottom: 24 },
-  finishIcon: { fontSize: 60, marginBottom: 12 },
-  finishTitle: { fontSize: 26, fontWeight: "700", color: "#1B5E20", marginBottom: 8 },
-  finishXP: { fontSize: 32, fontWeight: "700", color: "#B8922A", marginBottom: 8 },
-  finishText: { fontSize: 15, color: "#2E7D32", lineHeight: 22 },
-  progressCard: { backgroundColor: "#FFFFFF", borderRadius: 12, padding: 16, marginBottom: 24 },
-  progressTitle: { fontSize: 14, fontWeight: "700", color: "#1C1C2E", marginBottom: 12 },
-  progressBar: { height: 8, backgroundColor: "#E5E5E5", borderRadius: 4, overflow: "hidden", marginBottom: 8 },
-  progressFill: { height: "100%", backgroundColor: "#B8922A" },
-  progressText: { fontSize: 12, color: "#666666", fontWeight: "600" },
-  finishButton: { backgroundColor: "#070B18", borderRadius: 12, paddingVertical: 16, alignItems: "center" },
-  finishButtonText: { fontSize: 16, fontWeight: "700", color: "#C9A84C" },
+  // 6. SCENE — multiple interactive questions about the situation
+  const sceneTasks = lesson.exercises?.[0]?.tasks?.slice(1).filter((t: any) => t.options) || [];
+  if (sceneTasks.length > 0) {
+    cards.push({
+      type: "scene",
+      situation: lesson.description,
+      tasks: sceneTasks.map((t: any) => ({
+        question: t.question,
+        options: t.options,
+        answer: t.answer ?? t.correct ?? 0,
+      })),
+      image: img,
+    });
+  }
+
+  // 7. GRAMMAR + mini quiz (use recall tasks that have options)
+  if (lesson.grammar) {
+    // Find a quiz that actually relates to grammar (from recall exercises)
+    const grammarQuiz = lesson.exercises?.[1]?.tasks?.find((t: any) => t.options && t.question?.includes("___"));
+    const fallbackQuiz = lesson.exercises?.[1]?.tasks?.find((t: any) => t.options);
+    const quiz = grammarQuiz || fallbackQuiz;
+    cards.push({
+      type: "grammar",
+      concept: lesson.grammar.concept,
+      rule: lesson.grammar.rule,
+      mnemonic: lesson.grammar.mnemonic,
+      quiz: quiz ? { question: quiz.question, options: quiz.options, answer: quiz.answer ?? quiz.correct ?? 0 } : null,
+    });
+  }
+
+  // 8. VOCAB — words + chunks (phrases)
+  if (lesson.vocabulary) {
+    cards.push({
+      type: "vocab",
+      words: lesson.vocabulary.core?.slice(0, 6) || [],
+      phrases: lesson.vocabulary.phrases?.slice(0, 3) || [],
+    });
+  }
+
+  // 9. WORD ORDER — use a phrase with 3+ words
+  if (lesson.vocabulary?.phrases) {
+    // Find the longest phrase with 3+ words
+    const bestPhrase = lesson.vocabulary.phrases
+      .map((p: string) => p.split("::")[0].trim())
+      .filter((p: string) => p.replace(/[.,!?]/g, "").split(" ").length >= 3)
+      .sort((a: string, b: string) => b.split(" ").length - a.split(" ").length)[0]
+      || lesson.vocabulary.phrases[1]?.split("::")[0]?.trim()
+      || lesson.vocabulary.phrases[0]?.split("::")[0]?.trim();
+    if (bestPhrase) {
+      const cleanPhrase = bestPhrase.replace(/[!?]/g, "").trim();
+      const words = cleanPhrase.split(" ").filter(Boolean);
+      cards.push({ type: "wordOrder", words, expected: bestPhrase });
+    }
+  }
+
+  // 9b. WRITING EXERCISE (production tasks)
+  const writeTasks = lesson.exercises?.[2]?.tasks || [];
+  if (writeTasks.length > 0) {
+    cards.push({
+      type: "write",
+      instruction: lesson.exercises[2].instruction || "Write the German sentence.",
+      tasks: writeTasks.slice(0, 3),
+    });
+  }
+
+  // 10. AI CONVERSATION
+  cards.push({
+    type: "chat",
+    mission: lesson.description,
+    character: lesson.listening?.transcript?.split(":")[0]?.trim() || "Partner",
+    topic: lesson.title,
+    level: lesson.cefrLevel || "A1",
+    suggestions: lesson.vocabulary?.phrases?.slice(0, 3).map((p: string) => p.split("::")[0].trim()) || ["Guten Tag!", "Danke!"],
+  });
+
+  // 11. SELF-RATE
+  cards.push({ type: "selfrate" });
+
+  // 12. CELEBRATION
+  cards.push({ type: "finish", title: lesson.title, xp: lesson.xp_reward || 50, wordsLearned: lesson.vocabulary?.core?.length || 0 });
+
+  const total = cards.length;
+  const pct = total > 0 ? ((step + 1) / total) * 100 : 0;
+  const card = cards[step];
+
+  const goNext = () => {
+    if (step < total - 1) {
+      setStep(step + 1);
+      setWordOrder([]);
+      setWordOrderChecked(false);
+      setShowNav(false);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  };
+
+  const goBack = () => {
+    if (step > 0) {
+      setStep(step - 1);
+      setShowNav(false);
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }
+  };
+
+  const goToCard = (idx: number) => {
+    setStep(idx);
+    setShowNav(false);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  };
+
+  const CARD_LABELS = ["🎬", "🎧", "✅", "🔗", "🔊", "💬", "💡", "📦", "🧩", "✍️", "🎙", "⭐", "🎉"];
+
+  // ═══ AI CHAT ═══
+  const sendChat = async (msg?: string) => {
+    const text = msg || chatInput.trim();
+    if (!text || chatLoading) return;
+    setChatInput("");
+    setChatLoading(true);
+    const newMsgs: ChatMessage[] = [...chatMessages, { role: "user", content: text }];
+    setChatMessages(newMsgs);
+
+    const systemPrompt = `You are ${card?.character}, a friendly character in Berlin. The student just arrived at the airport and needs a taxi. Stay in character. Speak simple German (A1 level). Use ONLY words the student knows: Guten Tag, Danke, Bitte, Willkommen, Sprechen Sie Deutsch, Ein bisschen, Ja, Nein, Zum Hostel. Keep responses to 1-2 short sentences. If the student makes a mistake, gently correct them. After 3-4 exchanges, end the conversation naturally. Always be encouraging.`;
+
+    const res = await AI.chat(
+      [{ role: "assistant", content: systemPrompt }, ...newMsgs],
+      card?.topic || "", card?.level || "A1"
+    );
+    setChatMessages([...newMsgs, { role: "assistant", content: res.text }]);
+    setChatLoading(false);
+    // Read AI response aloud with character voice
+    const charName = card?.character || "default";
+    ElevenLabs.playCharacterLine(charName, res.text);
+    if (newMsgs.filter(m => m.role === "user").length === 1) addXP(15);
+    if (newMsgs.filter(m => m.role === "user").length === 3) addXP(10);
+  };
+
+  // ═══ RENDER ═══
+  const renderCard = () => {
+    if (!card) return null;
+
+    switch (card.type) {
+
+      // ── 1. HOOK ──
+      case "hook":
+        return (
+          <View style={s.cardInner}>
+            {card.image ? (
+              <Image source={{ uri: card.image }} style={s.heroImage} resizeMode="cover" />
+            ) : (
+              <View style={s.heroPlaceholder}><Text style={{ fontSize: 48 }}>✈️🏛️🚕</Text></View>
+            )}
+            <Text style={s.hookChapter}>CHAPTER {lesson.order_index}</Text>
+            <Text style={s.hookTitle}>{card.title}</Text>
+            <View style={s.missionBox}>
+              <Text style={s.missionLabel}>YOUR MISSION</Text>
+              <Text style={s.missionText}>{card.description}</Text>
+            </View>
+          </View>
+        );
+
+      // ── 2. LISTEN ──
+      case "listen": {
+        // Build word lookup from highlights
+        const wordLookup: Record<string, string> = {};
+        card.highlights?.forEach((h: string) => {
+          const [de, en] = h.split("::").map((s: string) => s.trim());
+          if (de && en) wordLookup[de.toLowerCase()] = en;
+        });
+
+        const playDialog = async () => {
+          setAudioPlaying(true);
+          // Play each line with the correct character voice
+          const lines = card.transcript.split("\n").filter(Boolean);
+          for (const line of lines) {
+            const [speaker, ...rest] = line.split(":");
+            const text = rest.join(":").trim();
+            if (text && speaker.trim() !== "You") {
+              await ElevenLabs.playCharacterLine(speaker.trim(), text);
+              // Small pause between lines
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+          setAudioPlaying(false);
+        };
+
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>LISTEN & READ</Text>
+
+            {/* Audio play button */}
+            <TouchableOpacity style={s.audioPlayBtn} onPress={playDialog} disabled={audioPlaying} activeOpacity={0.7}>
+              <Text style={s.audioPlayIcon}>{audioPlaying ? "⏳" : "▶"}</Text>
+              <Text style={s.audioPlayText}>{audioPlaying ? "Playing..." : "Listen to the dialogue"}</Text>
+            </TouchableOpacity>
+
+            {/* Tap hint */}
+            <Text style={s.tapWordHint}>💡 Tap any German word to see its meaning</Text>
+
+            {/* Dialog bubbles with tappable words */}
+            <View style={s.dialogBox}>
+              {card.transcript.split("\n").map((line: string, i: number) => {
+                const [speaker, ...rest] = line.split(":");
+                const text = rest.join(":").trim();
+                const isUser = speaker.trim() === "Du" || speaker.trim() === "You";
+                if (!text) return null;
+
+                // Split text into tappable words
+                const words = text.split(/(\s+)/).filter(Boolean);
+
+                return (
+                  <View key={i} style={isUser ? s.bubbleRight : s.bubbleLeft}>
+                    <Text style={s.bubbleSpeaker}>{speaker.trim()}</Text>
+                    <Text style={s.bubbleText}>
+                      {words.map((word: string, j: number) => {
+                        const clean = word.replace(/[.,!?]/g, "").toLowerCase();
+                        const meaning = wordLookup[clean];
+                        if (meaning && word.trim()) {
+                          return (
+                            <Text key={j} style={s.tappableWord} onPress={() => setTappedWord({ word: word.trim(), meaning })}>
+                              {word}
+                            </Text>
+                          );
+                        }
+                        return <Text key={j}>{word}</Text>;
+                      })}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Word translation popup */}
+            {tappedWord && (
+              <TouchableOpacity style={s.wordPopup} onPress={() => setTappedWord(null)} activeOpacity={0.9}>
+                <Text style={s.wordPopupDe}>{tappedWord.word}</Text>
+                <Text style={s.wordPopupEn}>= {tappedWord.meaning}</Text>
+                <Text style={s.wordPopupClose}>tap to close</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Key words */}
+            {card.highlights && (
+              <View style={s.keyWordsBox}>
+                <Text style={s.keyWordsTitle}>KEY WORDS</Text>
+                {card.highlights.slice(0, 6).map((h: string, i: number) => {
+                  const [de, en] = h.split("::").map((s: string) => s.trim());
+                  return (
+                    <View key={i} style={s.keyWordRow}>
+                      <Text style={s.keyWordDe}>{de}</Text>
+                      <Text style={s.keyWordEn}>{en}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        );
+      }
+
+      // ── 3. COMPREHENSION ──
+      case "comprehension": {
+        const ans = answers[step];
+        const answered = ans !== undefined;
+        const correct = ans === card.answer;
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>✅</Text>
+            <Text style={s.label}>DID YOU UNDERSTAND?</Text>
+            <Text style={s.quizQ}>{card.question}</Text>
+            {card.options.map((opt: string, i: number) => (
+              <TouchableOpacity key={i} style={[s.optBtn, answered && i === card.answer && s.optCorrect, answered && ans === i && ans !== card.answer && s.optWrong]} onPress={() => { if (!answered) { setAnswers({ ...answers, [step]: i }); if (i === card.answer) addXP(5); } }} activeOpacity={answered ? 1 : 0.7}>
+                <Text style={[s.optText, answered && i === card.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
+                {answered && i === card.answer && <Text style={{ color: C.green, fontWeight: "800" }}>✓</Text>}
+              </TouchableOpacity>
+            ))}
+            {answered && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>{correct ? "Correct! ✓" : "Continue →"}</Text></TouchableOpacity>}
+          </View>
+        );
+      }
+
+      // ── 4. MATCH (real tap-tap pairing) ──
+      case "match": {
+        // Shuffle English meanings (but keep them stable via step)
+        const shuffledEn = [...card.words].sort((a: any, b: any) => a.en > b.en ? -1 : 1);
+        const allMatched = Object.keys(matchPairs).length === card.words.length;
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>🔗</Text>
+            <Text style={s.label}>MATCH THE WORDS</Text>
+            <Text style={s.matchHint}>Step 1: Tap a German word. Step 2: Tap its English meaning.</Text>
+
+            <View style={s.matchColumns}>
+              {/* German column */}
+              <View style={s.matchCol}>
+                <Text style={s.matchColTitle}>German</Text>
+                {card.words.map((w: any, i: number) => {
+                  const paired = matchPairs[i] !== undefined;
+                  const selected = matchSelected === i;
+                  return (
+                    <TouchableOpacity key={i} style={[s.matchItem, selected && s.matchItemSelected, paired && s.matchItemDone]} onPress={() => { if (!paired) setMatchSelected(i); }} activeOpacity={paired ? 1 : 0.7}>
+                      <Text style={[s.matchItemText, paired && { color: C.green }]}>{w.de}</Text>
+                      {paired && <Text style={{ color: C.green, fontSize: 12 }}>✓</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* English column */}
+              <View style={s.matchCol}>
+                <Text style={s.matchColTitle}>English</Text>
+                {shuffledEn.map((w: any, j: number) => {
+                  const origIdx = card.words.findIndex((orig: any) => orig.en === w.en);
+                  const paired = Object.values(matchPairs).includes(origIdx);
+                  return (
+                    <TouchableOpacity key={j} style={[s.matchItem, paired && s.matchItemDone]} onPress={() => {
+                      if (matchSelected !== null && !paired) {
+                        const isCorrect = card.words[matchSelected].en === w.en;
+                        if (isCorrect) {
+                          setMatchPairs({ ...matchPairs, [matchSelected]: origIdx });
+                          addXP(5);
+                        }
+                        setMatchSelected(null);
+                      }
+                    }} activeOpacity={paired ? 1 : 0.7}>
+                      <Text style={[s.matchItemText, paired && { color: C.green }]}>{w.en}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {allMatched && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>All matched! 🎉 Continue →</Text></TouchableOpacity>}
+          </View>
+        );
+      }
+
+      // ── 5. PRONUNCIATION QUIZ ──
+      case "pronunciation": {
+        const currentWord = card.words?.[pronIdx];
+        const allPronDone = pronDone.length === (card.words?.length || 0);
+
+        const playWord = async (text: string) => {
+          setPronPlaying(true);
+          await ElevenLabs.playText(text);
+          setPronPlaying(false);
+        };
+
+        const markDone = () => {
+          if (!pronDone.includes(pronIdx)) {
+            setPronDone([...pronDone, pronIdx]);
+            addXP(5);
+          }
+          if (pronIdx < (card.words?.length || 0) - 1) {
+            setPronIdx(pronIdx + 1);
+          }
+        };
+
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>LISTEN & REPEAT</Text>
+            <Text style={s.pronSubtitle}>Listen to each phrase, then say it out loud.</Text>
+
+            {/* Progress dots */}
+            <View style={s.pronDots}>
+              {card.words?.map((_: any, i: number) => (
+                <View key={i} style={[s.pronDot, pronDone.includes(i) && s.pronDotDone, pronIdx === i && s.pronDotActive]} />
+              ))}
+            </View>
+
+            {/* Current word */}
+            {currentWord && (
+              <View style={s.pronCard}>
+                <Text style={s.pronWord}>{currentWord.de}</Text>
+                <Text style={s.pronMeaning}>{currentWord.en}</Text>
+
+                {/* Listen button */}
+                <TouchableOpacity style={s.pronListenBtn} onPress={() => playWord(currentWord.de)} disabled={pronPlaying} activeOpacity={0.7}>
+                  <Text style={s.pronListenIcon}>{pronPlaying ? "⏳" : "🔊"}</Text>
+                  <Text style={s.pronListenText}>{pronPlaying ? "Playing..." : "Listen"}</Text>
+                </TouchableOpacity>
+
+                {/* Record / I said it button */}
+                <View style={s.pronActions}>
+                  <TouchableOpacity style={s.pronMicBtn} onPress={() => {
+                    if (typeof window !== "undefined" && (window as any).webkitSpeechRecognition) {
+                      const SR = (window as any).webkitSpeechRecognition;
+                      const recognition = new SR();
+                      recognition.lang = "de-DE";
+                      recognition.onresult = () => markDone();
+                      recognition.onerror = () => markDone();
+                      recognition.start();
+                    } else {
+                      markDone();
+                    }
+                  }} activeOpacity={0.7}>
+                    <Text style={s.pronMicIcon}>🎤</Text>
+                    <Text style={s.pronMicText}>Say it</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={s.pronSkipBtn} onPress={markDone} activeOpacity={0.7}>
+                    <Text style={s.pronSkipText}>I said it ✓</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Pronunciation tips */}
+            {card.rules && card.rules.length > 0 && (
+              <View style={s.pronTips}>
+                <Text style={s.pronTipsTitle}>💡 PRONUNCIATION TIPS</Text>
+                {card.rules.map((r: any, i: number) => (
+                  <View key={i} style={s.pronTipRow}>
+                    <Text style={s.pronTipRule}>{r.sound || r.person}</Text>
+                    <Text style={s.pronTipTrick}>{r.english_trick || r.example || ""}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {allPronDone && (
+              <View style={s.pronComplete}>
+                <Text style={s.pronCompleteText}>🎉 All phrases practiced!</Text>
+              </View>
+            )}
+          </View>
+        );
+      }
+
+      // ── 6. SCENE ──
+      case "scene": {
+        const sceneTask = card.tasks?.[sceneIdx];
+        const sceneAns = answers[`scene-${sceneIdx}`];
+        const sceneAnswered = sceneAns !== undefined;
+        const sceneCorrect = sceneAns === sceneTask?.answer;
+        const allSceneDone = sceneIdx >= (card.tasks?.length || 0);
+
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>IN THE SCENE</Text>
+
+            {/* Situation context */}
+            <View style={s.sceneSituation}>
+              <Text style={s.sceneSituationText}>📍 {card.situation}</Text>
+            </View>
+
+            {card.image ? <Image source={{ uri: card.image }} style={s.sceneImage} resizeMode="cover" /> : null}
+
+            {/* Scene progress */}
+            <Text style={s.sceneProgress}>Question {Math.min(sceneIdx + 1, card.tasks?.length || 0)} of {card.tasks?.length || 0}</Text>
+
+            {!allSceneDone && sceneTask ? (
+              <>
+                <Text style={s.quizQ}>{sceneTask.question}</Text>
+                <View style={s.chipsRow}>
+                  {sceneTask.options.map((opt: string, i: number) => (
+                    <TouchableOpacity key={i} style={[s.chip, sceneAnswered && i === sceneTask.answer && s.chipCorrect, sceneAnswered && sceneAns === i && sceneAns !== sceneTask.answer && s.chipWrong]} onPress={() => { if (!sceneAnswered) { setAnswers({ ...answers, [`scene-${sceneIdx}`]: i }); if (i === sceneTask.answer) addXP(10); } }} activeOpacity={sceneAnswered ? 1 : 0.7}>
+                      <Text style={[s.chipText, sceneAnswered && i === sceneTask.answer && { color: C.green }]}>{opt}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {sceneAnswered && sceneCorrect && <Text style={s.correctFeedback}>✅ Correct!</Text>}
+                {sceneAnswered && !sceneCorrect && <Text style={s.wrongFeedback}>Best answer: "{sceneTask.options[sceneTask.answer]}"</Text>}
+                {sceneAnswered && sceneIdx < (card.tasks?.length || 0) - 1 && (
+                  <TouchableOpacity style={s.nextBtn} onPress={() => setSceneIdx(sceneIdx + 1)}>
+                    <Text style={s.nextBtnText}>Next question →</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <View style={s.pronComplete}>
+                <Text style={s.pronCompleteText}>🎉 All scene questions done!</Text>
+              </View>
+            )}
+          </View>
+        );
+      }
+
+      // ── 7. GRAMMAR + QUIZ ──
+      case "grammar": {
+        const q = card.quiz;
+        const ans = answers[step];
+        const answered = q && ans !== undefined;
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>💡</Text>
+            <Text style={s.label}>GOOD TO KNOW</Text>
+            <Text style={s.grammarTitle}>{card.concept}</Text>
+            <View style={s.grammarBox}><Text style={s.grammarText}>{card.rule}</Text></View>
+            {card.mnemonic && <View style={s.mnemonicBox}><Text style={s.mnemonicText}>🧠 {card.mnemonic}</Text></View>}
+            {q && (
+              <>
+                <Text style={[s.quizQ, { marginTop: 20 }]}>{q.question}</Text>
+                {q.options.map((opt: string, i: number) => (
+                  <TouchableOpacity key={i} style={[s.optBtn, answered && i === q.answer && s.optCorrect, answered && ans === i && ans !== q.answer && s.optWrong]} onPress={() => { if (!answered) { setAnswers({ ...answers, [step]: i }); if (i === q.answer) addXP(10); } }} activeOpacity={answered ? 1 : 0.7}>
+                    <Text style={[s.optText, answered && i === q.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            )}
+            {(answered || !q) && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>Continue →</Text></TouchableOpacity>}
+          </View>
+        );
+      }
+
+      // ── 8. VOCAB (words + chunks) ──
+      case "vocab": {
+        const allFlipped = card.words.every((_: any, i: number) => flipped[`${step}-${i}`]);
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>📦</Text>
+            <Text style={s.label}>YOUR NEW WORDS</Text>
+            <Text style={s.vocabHint}>Tap each card to flip it.</Text>
+            {card.words.map((w: string, i: number) => {
+              const [de, en] = (w.includes("::") ? w.split("::") : [w, ""]).map((s: string) => s.trim());
+              const key = `${step}-${i}`;
+              const fl = flipped[key];
+              return (
+                <TouchableOpacity key={i} style={[s.vocabCard, fl && { borderColor: C.greenLine, backgroundColor: C.greenDim }]} onPress={() => { if (!fl) { setFlipped({ ...flipped, [key]: true }); addXP(2); } }} activeOpacity={fl ? 1 : 0.7}>
+                  <Text style={s.vocabDe}>{de}</Text>
+                  {fl ? <Text style={s.vocabEn}>{en}</Text> : <Text style={s.vocabFlip}>tap ↻</Text>}
+                </TouchableOpacity>
+              );
+            })}
+            {card.phrases.length > 0 && (
+              <>
+                <Text style={[s.label, { marginTop: 20 }]}>USEFUL PHRASES</Text>
+                {card.phrases.map((p: string, i: number) => {
+                  const [de, en] = p.split("::").map((s: string) => s.trim());
+                  return (
+                    <View key={i} style={s.phraseRow}>
+                      <Text style={s.phraseDe}>"{de}"</Text>
+                      <Text style={s.phraseEn}>{en}</Text>
+                    </View>
+                  );
+                })}
+              </>
+            )}
+            {allFlipped && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>All learned! Continue →</Text></TouchableOpacity>}
+          </View>
+        );
+      }
+
+      // ── 9. WORD ORDER ──
+      case "wordOrder": {
+        const shuffled = [...card.words].sort(() => 0.5 - Math.random());
+        const available = (wordOrder.length === 0 ? shuffled : card.words).filter((w: string) => !wordOrder.includes(w));
+        const result = wordOrder.join(" ");
+        const isCorrect = wordOrderChecked && result.toLowerCase().trim() === card.expected.toLowerCase().replace(/[.,!?]/g, "").trim();
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>🧩</Text>
+            <Text style={s.label}>BUILD THE SENTENCE</Text>
+            <Text style={s.wordOrderHint}>Tap the words in the correct order:</Text>
+            <View style={s.wordOrderResult}>
+              {wordOrder.length > 0 ? (
+                <Text style={s.wordOrderText}>{wordOrder.join(" ")}</Text>
+              ) : (
+                <Text style={s.wordOrderPlaceholder}>Tap words below...</Text>
+              )}
+            </View>
+            <View style={s.wordOrderChips}>
+              {(wordOrder.length === 0 ? shuffled : card.words.filter((w: string) => !wordOrder.includes(w))).map((w: string, i: number) => (
+                <TouchableOpacity key={`${w}-${i}`} style={s.wordOrderChip} onPress={() => setWordOrder([...wordOrder, w])}>
+                  <Text style={s.wordOrderChipText}>{w}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {wordOrder.length > 0 && !wordOrderChecked && (
+              <View style={s.wordOrderActions}>
+                <TouchableOpacity style={s.resetBtn} onPress={() => setWordOrder([])}>
+                  <Text style={s.resetBtnText}>Reset</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.checkBtn} onPress={() => { setWordOrderChecked(true); if (result.toLowerCase().trim() === card.expected.toLowerCase().replace(/[.,!?]/g, "").trim()) addXP(10); }}>
+                  <Text style={s.checkBtnText}>Check ✓</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {wordOrderChecked && isCorrect && <Text style={s.correctFeedback}>✅ Perfect! "{card.expected}"</Text>}
+            {wordOrderChecked && !isCorrect && <Text style={s.wrongFeedback}>Correct order: "{card.expected}"</Text>}
+            {wordOrderChecked && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>Continue →</Text></TouchableOpacity>}
+          </View>
+        );
+      }
+
+      // ── 9b. WRITING EXERCISE ──
+      case "write": {
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>WRITE IT</Text>
+            <Text style={s.writeInstruction}>{card.instruction}</Text>
+            {card.tasks.map((task: any, i: number) => {
+              const userAnswer = writeAnswers[i] || "";
+              const checked = writeChecked[i];
+              // Accept: full sentence OR just the missing word(s)
+              const expected = (task.expected || "").trim().toLowerCase();
+              const answer = userAnswer.trim().toLowerCase();
+              const isCorrect = checked && (
+                answer === expected ||
+                expected.includes(answer) && answer.length >= 3 ||
+                answer.replace(/[.,!?]/g, "") === expected.replace(/[.,!?]/g, "")
+              );
+              return (
+                <View key={i} style={s.writeTask}>
+                  <Text style={s.writePrompt}>{task.prompt}</Text>
+                  <TextInput
+                    style={[s.writeInput, checked && isCorrect && s.writeInputCorrect, checked && !isCorrect && s.writeInputWrong]}
+                    value={userAnswer}
+                    onChangeText={(t) => setWriteAnswers({ ...writeAnswers, [i]: t })}
+                    placeholder="Type the missing word(s)..."
+                    placeholderTextColor={C.muted}
+                    editable={!checked}
+                  />
+                  {!checked && userAnswer.trim().length > 0 && (
+                    <TouchableOpacity style={s.writeCheckBtn} onPress={() => {
+                      setWriteChecked({ ...writeChecked, [i]: true });
+                      const a = userAnswer.trim().toLowerCase();
+                      const e = (task.expected || "").trim().toLowerCase();
+                      if (a === e || (e.includes(a) && a.length >= 3) || a.replace(/[.,!?]/g, "") === e.replace(/[.,!?]/g, "")) addXP(10);
+                    }}>
+                      <Text style={s.writeCheckText}>Check ✓</Text>
+                    </TouchableOpacity>
+                  )}
+                  {checked && isCorrect && <Text style={s.correctFeedback}>✅ Perfect!</Text>}
+                  {checked && !isCorrect && (
+                    <View>
+                      <Text style={s.wrongFeedback}>Not quite. The full answer is:</Text>
+                      <Text style={s.writeExpected}>{task.expected}</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        );
+      }
+
+      // ── 10. AI CONVERSATION ──
+      case "chat":
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>🎙</Text>
+            <Text style={s.label}>CONVERSATION PRACTICE</Text>
+            <View style={s.missionBox}>
+              <Text style={s.missionLabel}>YOUR MISSION</Text>
+              <Text style={s.missionText}>{card.mission}</Text>
+            </View>
+            <View style={s.characterBadge}>
+              <Text style={{ fontSize: 28 }}>🚕</Text>
+              <View>
+                <Text style={s.characterName}>{card.character}</Text>
+                <Text style={s.characterRole}>will talk to you in German</Text>
+              </View>
+            </View>
+            <View style={s.chatBox}>
+              {chatMessages.length === 0 && (
+                <View style={s.bubbleLeft}>
+                  <Text style={s.bubbleSpeaker}>{card.character}</Text>
+                  <Text style={s.bubbleText}>Guten Tag! Wohin möchten Sie?</Text>
+                </View>
+              )}
+              {chatMessages.map((m, i) => (
+                <View key={i} style={m.role === "user" ? s.bubbleRight : s.bubbleLeft}>
+                  <Text style={s.bubbleSpeaker}>{m.role === "user" ? "You" : card.character}</Text>
+                  <Text style={[s.bubbleText, m.role === "user" && { color: "#fff" }]}>{m.content}</Text>
+                </View>
+              ))}
+              {chatLoading && <View style={s.bubbleLeft}><Text style={s.bubbleText}>💬 typing...</Text></View>}
+            </View>
+            {chatMessages.filter(m => m.role === "user").length < 3 && (
+              <View style={s.suggestBox}>
+                <Text style={s.suggestTitle}>💡 You could say:</Text>
+                <View style={s.suggestChips}>
+                  {card.suggestions.map((sug: string, i: number) => (
+                    <TouchableOpacity key={i} style={s.suggestChip} onPress={() => sendChat(sug)}>
+                      <Text style={s.suggestText}>{sug}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+            <View style={s.chatInputRow}>
+              <TextInput style={s.chatInput} value={chatInput} onChangeText={setChatInput} placeholder="Type in German..." placeholderTextColor={C.muted} onSubmitEditing={() => sendChat()} returnKeyType="send" />
+              {/* Microphone button (Web Speech API) */}
+              <TouchableOpacity style={s.micBtn} onPress={() => {
+                if (typeof window !== "undefined" && (window as any).webkitSpeechRecognition) {
+                  const SpeechRecognition = (window as any).webkitSpeechRecognition;
+                  const recognition = new SpeechRecognition();
+                  recognition.lang = "de-DE";
+                  recognition.onresult = (event: any) => {
+                    const transcript = event.results[0][0].transcript;
+                    setChatInput(transcript);
+                  };
+                  recognition.start();
+                } else {
+                  alert("Speech recognition is not supported in this browser. Try Chrome.");
+                }
+              }} activeOpacity={0.7}>
+                <Text style={s.micBtnText}>🎤</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.sendBtn} onPress={() => sendChat()}><Text style={s.sendBtnText}>→</Text></TouchableOpacity>
+            </View>
+            {chatMessages.filter(m => m.role === "user").length >= 3 && (
+              <View>
+                <Text style={s.chatSuccess}>🎉 Amazing! You just had a real conversation in German!</Text>
+                <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>Continue →</Text></TouchableOpacity>
+              </View>
+            )}
+            {chatMessages.filter(m => m.role === "user").length > 0 && chatMessages.filter(m => m.role === "user").length < 3 && (
+              <Text style={s.chatProgress}>{3 - chatMessages.filter(m => m.role === "user").length} more message(s) to complete</Text>
+            )}
+          </View>
+        );
+
+      // ── 11. SELF-RATE ──
+      case "selfrate":
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.cardEmoji}>⭐</Text>
+            <Text style={s.label}>HOW DO YOU FEEL?</Text>
+            <Text style={s.rateTitle}>How confident are you with this lesson?</Text>
+            <Text style={s.rateDesc}>Be honest — this helps us personalize your learning.</Text>
+            <View style={s.rateRow}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <TouchableOpacity key={n} style={[s.rateStar, selfRating >= n && s.rateStarActive]} onPress={() => setSelfRating(n)}>
+                  <Text style={[s.rateStarText, selfRating >= n && { color: C.gold }]}>{selfRating >= n ? "★" : "☆"}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={s.rateLabels}><Text style={s.rateLabelText}>Not sure</Text><Text style={s.rateLabelText}>Very confident</Text></View>
+            {selfRating > 0 && (
+              <View>
+                <View style={s.rateFeedback}>
+                  <Text style={s.rateFeedbackText}>
+                    {selfRating <= 2 ? "That's okay! You can replay this lesson anytime. Practice makes perfect. 💪" :
+                     selfRating === 3 ? "Good start! You're getting there. Try the AI conversation again to build confidence. 🎯" :
+                     "Amazing! You're picking this up fast. Ready for the next challenge! 🚀"}
+                  </Text>
+                </View>
+                <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>Continue →</Text></TouchableOpacity>
+              </View>
+            )}
+          </View>
+        );
+
+      // ── 12. CELEBRATION ──
+      case "finish":
+        return (
+          <View style={[s.cardInner, { alignItems: "center" }]}>
+            <Text style={{ fontSize: 64, marginBottom: 12 }}>🎉</Text>
+            <Text style={s.finishTitle}>Mission Complete!</Text>
+            <Text style={s.finishSub}>{card.title}</Text>
+            <View style={s.finishStats}>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{totalXP + card.xp}</Text><Text style={s.finishStatLabel}>Total XP</Text></View>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{card.wordsLearned}</Text><Text style={s.finishStatLabel}>Words</Text></View>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{selfRating}/5</Text><Text style={s.finishStatLabel}>Confidence</Text></View>
+            </View>
+            <TouchableOpacity style={s.finishBtn} onPress={async () => {
+              await Progress.addXP(totalXP + card.xp);
+              await Progress.markComplete(lesson.id);
+              if (lesson.vocabulary?.core) {
+                const words = lesson.vocabulary.core.map((w: string) => { const p = w.split("::"); return { word: p[0]?.trim() || w, meaning: p[1]?.trim() || "" }; });
+                await SRS.addWordsFromLesson(lesson.id, words);
+              }
+              router.back();
+            }}>
+              <Text style={s.finishBtnText}>Continue your journey →</Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      default: return null;
+    }
+  };
+
+  // Phase names for the navigation bar
+  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Scene", "Grammar", "Words", "Build", "Write", "Talk", "Rate", "Done"];
+
+  return (
+    <View style={s.root}>
+      <StatusBar barStyle="dark-content" />
+      <View style={{ height: SAFE_TOP }} />
+
+      {/* ═══ TOP BAR: Close + XP ═══ */}
+      <View style={s.topRow}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Text style={s.closeBtn}>✕</Text>
+        </TouchableOpacity>
+        <View style={s.progressTrack}><View style={[s.progressFill, { width: `${pct}%` }]} /></View>
+        <View style={s.xpBadge}><Text style={s.xpBadgeText}>⚡{totalXP}</Text></View>
+      </View>
+
+      {/* ═══ PHASE NAV BAR: Scrollable dots ═══ */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.phaseBar}>
+        {CARD_LABELS.slice(0, total).map((emoji, i) => {
+          const isActive = i === step;
+          const isDone = i < step;
+          return (
+            <TouchableOpacity key={i} style={[s.phaseDot, isActive && s.phaseDotActive, isDone && s.phaseDotDone]} onPress={() => goToCard(i)} activeOpacity={0.7}>
+              <Text style={[s.phaseDotEmoji, isActive && { fontSize: 14 }]}>{emoji}</Text>
+              <Text style={[s.phaseDotLabel, isActive && s.phaseDotLabelActive]}>{PHASE_NAMES[i] || `${i+1}`}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* ═══ PHASE TITLE ═══ */}
+      <View style={s.phaseTitle}>
+        <Text style={s.phaseTitleText}>{CARD_LABELS[step]} {PHASE_NAMES[step] || `Card ${step + 1}`}</Text>
+        <Text style={s.phaseTitleCount}>{step + 1} of {total}</Text>
+      </View>
+
+      {lastXP > 0 && <XPPopup amount={lastXP} />}
+
+      {/* ═══ CONTENT ═══ */}
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+        {renderCard()}
+      </ScrollView>
+
+      {/* ═══ FIXED BOTTOM: Back + Continue ═══ */}
+      {card && !["finish"].includes(card.type) && (
+        <View style={s.bottomBar}>
+          {step > 0 && (
+            <TouchableOpacity style={s.bottomBackBtn} onPress={goBack} activeOpacity={0.7}>
+              <Text style={s.bottomBackText}>← Back</Text>
+            </TouchableOpacity>
+          )}
+          {step < total - 1 && (
+            <TouchableOpacity style={[s.bottomBtn, step === 0 && { flex: 1 }]} onPress={goNext} activeOpacity={0.85}>
+              <Text style={s.bottomBtnText}>{step === 0 ? "Let's go! →" : "Continue →"}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ═══ STYLES ═══
+const s = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.bg },
+  center: { flex: 1, backgroundColor: C.bg, justifyContent: "center", alignItems: "center" },
+  errorText: { fontSize: 18, color: C.red }, errorLink: { color: C.gold, fontSize: 16, marginTop: 16 },
+  topRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, gap: 10 },
+  closeBtn: { color: C.muted, fontSize: 22, width: 28 },
+
+  // Phase navigation bar
+  phaseBar: { paddingHorizontal: 12, paddingVertical: 6, gap: 4 },
+  phaseDot: { alignItems: "center", paddingHorizontal: 4, paddingVertical: 4, borderRadius: 8, width: 40, height: 36 },
+  phaseDotActive: { backgroundColor: C.goldDim, borderWidth: 1.5, borderColor: C.gold },
+  phaseDotDone: { backgroundColor: C.greenDim },
+  phaseDotEmoji: { fontSize: 12 },
+  phaseDotLabel: { fontSize: 8, fontWeight: "700", color: C.muted, marginTop: 2 },
+  phaseDotLabelActive: { color: C.gold },
+
+  // Phase title
+  phaseTitle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
+  phaseTitleText: { fontSize: 14, fontWeight: "800", color: C.text },
+  phaseTitleCount: { fontSize: 12, fontWeight: "700", color: C.muted },
+  progressTrack: { flex: 1, height: 8, backgroundColor: C.bg3, borderRadius: 4, overflow: "hidden" },
+  progressFill: { height: "100%", backgroundColor: C.gold, borderRadius: 4 },
+  xpBadge: { backgroundColor: C.goldDim, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  xpBadgeText: { fontSize: 13, fontWeight: "800", color: C.gold },
+  xpPopup: { position: "absolute", top: 60, right: 20, backgroundColor: C.gold, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 8, zIndex: 100 },
+  xpPopupText: { color: "#fff", fontSize: 16, fontWeight: "900" },
+  scroll: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, flexGrow: 1 },
+  cardInner: { paddingTop: 4 },
+  cardEmoji: { fontSize: 24, marginBottom: 4 },
+  label: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 8 },
+
+  // Hook
+  heroImage: { width: "100%", height: 220, borderRadius: 18, marginBottom: 16 },
+  heroPlaceholder: { width: "100%", height: 180, borderRadius: 18, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  hookChapter: { fontSize: 11, fontWeight: "900", color: C.muted, letterSpacing: 3 },
+  hookTitle: { fontFamily: SERIF, fontSize: 28, fontWeight: "700", color: C.text, marginTop: 4 },
+  hookDesc: { fontSize: 15, color: C.textSec, lineHeight: 22, marginTop: 8 },
+  missionBox: { backgroundColor: C.goldDim, borderRadius: 14, borderLeftWidth: 3, borderLeftColor: C.gold, padding: 16, marginTop: 16 },
+  missionLabel: { fontSize: 9, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 4 },
+  missionText: { fontSize: 14, color: C.text, lineHeight: 20 },
+
+  // Audio
+  audioPlayBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.goldLine, padding: 16, marginBottom: 10 },
+  audioPlayIcon: { fontSize: 20, color: C.gold },
+  audioPlayText: { fontSize: 15, fontWeight: "700", color: C.gold },
+  tapWordHint: { fontSize: 12, color: C.muted, marginBottom: 10 },
+  tappableWord: { color: C.gold, textDecorationLine: "underline", fontWeight: "600" },
+  wordPopup: { backgroundColor: C.card, borderRadius: 14, borderWidth: 2, borderColor: C.gold, padding: 18, marginVertical: 10, alignItems: "center" },
+  wordPopupDe: { fontSize: 20, fontWeight: "800", color: C.text },
+  wordPopupEn: { fontSize: 16, color: C.gold, marginTop: 4 },
+  wordPopupClose: { fontSize: 11, color: C.muted, marginTop: 8 },
+
+  // Listen / Chat bubbles
+  dialogBox: { marginBottom: 16 },
+  chatBubble: { borderRadius: 16, padding: 14, marginBottom: 8, maxWidth: "85%" },
+  bubbleLeft: { backgroundColor: C.card, borderRadius: 16, borderTopLeftRadius: 4, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 8, maxWidth: "85%", alignSelf: "flex-start" },
+  bubbleRight: { backgroundColor: C.gold, borderRadius: 16, borderTopRightRadius: 4, padding: 14, marginBottom: 8, maxWidth: "85%", alignSelf: "flex-end" },
+  bubbleSpeaker: { fontSize: 10, fontWeight: "800", color: C.muted, marginBottom: 4 },
+  bubbleText: { fontSize: 15, color: C.text, lineHeight: 22 },
+  keyWordsBox: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 16 },
+  keyWordsTitle: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 10 },
+  keyWordRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.bg2 },
+  keyWordDe: { fontSize: 15, fontWeight: "700", color: C.text },
+  keyWordEn: { fontSize: 14, color: C.muted },
+
+  // Quiz
+  quizQ: { fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, marginBottom: 16, lineHeight: 28 },
+  optBtn: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, padding: 18, marginBottom: 12, flexDirection: "row", alignItems: "center", minHeight: 56 },
+  optCorrect: { borderColor: C.green, backgroundColor: C.greenDim },
+  optWrong: { borderColor: C.red, backgroundColor: C.redDim },
+  optText: { fontSize: 16, color: C.text, flex: 1 },
+  correctFeedback: { fontSize: 14, color: C.green, fontWeight: "700", marginTop: 8 },
+  wrongFeedback: { fontSize: 14, color: C.red, fontWeight: "600", marginTop: 8 },
+
+  // Match (columns)
+  matchColumns: { flexDirection: "row", gap: 12 },
+  matchCol: { flex: 1 },
+  matchColTitle: { fontSize: 10, fontWeight: "800", color: C.muted, letterSpacing: 1.5, marginBottom: 8, textAlign: "center" },
+  matchItem: { backgroundColor: C.card, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, padding: 14, marginBottom: 8, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 },
+  matchItemSelected: { borderColor: C.gold, backgroundColor: C.goldDim },
+  matchItemDone: { borderColor: C.green, backgroundColor: C.greenDim },
+  matchItemText: { fontSize: 14, fontWeight: "600", color: C.text },
+  matchHint: { fontSize: 13, color: C.muted, marginBottom: 14 },
+  matchRow: { flexDirection: "row", alignItems: "center", marginBottom: 10, gap: 10 },
+  matchDe: { flex: 1, backgroundColor: C.card, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, padding: 12, alignItems: "center" },
+  matchDone: { borderColor: C.green, backgroundColor: C.greenDim },
+  matchDeText: { fontSize: 15, fontWeight: "700", color: C.text },
+  matchArrow: { fontSize: 16, color: C.muted },
+  matchEn: { flex: 1, backgroundColor: C.bg2, borderRadius: 12, padding: 12, alignItems: "center" },
+  matchEnText: { fontSize: 14, color: C.textSec },
+
+  // Scene
+  sceneSituation: { backgroundColor: C.goldDim, borderRadius: 12, padding: 14, marginBottom: 12 },
+  sceneSituationText: { fontSize: 14, color: C.gold, lineHeight: 20 },
+  sceneProgress: { fontSize: 11, fontWeight: "700", color: C.muted, marginBottom: 12 },
+  sceneImage: { width: "100%", height: 160, borderRadius: 14, marginBottom: 14 },
+  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  chip: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 18, paddingVertical: 12 },
+  chipCorrect: { borderColor: C.green, backgroundColor: C.greenDim },
+  chipWrong: { borderColor: C.red, backgroundColor: C.redDim },
+  chipText: { fontSize: 15, fontWeight: "600", color: C.text },
+
+  // Grammar
+  grammarTitle: { fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, marginBottom: 10 },
+  grammarBox: { backgroundColor: C.card, borderRadius: 14, borderLeftWidth: 3, borderLeftColor: C.purple, padding: 18, marginBottom: 12 },
+  grammarText: { fontSize: 15, color: C.text, lineHeight: 24 },
+  mnemonicBox: { backgroundColor: C.greenDim, borderRadius: 12, padding: 14 },
+  mnemonicText: { fontSize: 14, color: C.green, lineHeight: 20 },
+  ruleCard: { backgroundColor: C.blueDim, borderRadius: 12, padding: 14, marginBottom: 14 },
+  ruleCardText: { fontSize: 14, color: C.blue, lineHeight: 20 },
+
+  // Vocab
+  vocabHint: { fontSize: 13, color: C.muted, marginBottom: 12 },
+  vocabCard: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: C.card, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, padding: 16, marginBottom: 8 },
+  vocabDe: { fontSize: 16, fontWeight: "700", color: C.text },
+  vocabEn: { fontSize: 14, color: C.green, fontWeight: "600" },
+  vocabFlip: { fontSize: 12, color: C.muted },
+  phraseRow: { paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.bg2 },
+  phraseDe: { fontSize: 15, fontWeight: "700", color: C.text },
+  phraseEn: { fontSize: 13, color: C.muted, marginTop: 2 },
+
+  // Write exercise
+  writeInstruction: { fontSize: 14, color: C.textSec, marginBottom: 16 },
+  writeTask: { marginBottom: 20 },
+  writePrompt: { fontSize: 16, fontWeight: "700", color: C.text, marginBottom: 10, lineHeight: 24 },
+  writeInput: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, padding: 16, fontSize: 16, color: C.text, minHeight: 52 },
+  writeInputCorrect: { borderColor: C.green, backgroundColor: C.greenDim },
+  writeInputWrong: { borderColor: C.red, backgroundColor: C.redDim },
+  writeCheckBtn: { backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.gold, paddingVertical: 12, alignItems: "center", marginTop: 10 },
+  writeCheckText: { fontSize: 14, fontWeight: "700", color: C.gold },
+  writeExpected: { fontSize: 16, fontWeight: "700", color: C.green, backgroundColor: C.greenDim, borderRadius: 10, padding: 12, marginTop: 6 },
+
+  // Pronunciation
+  pronSubtitle: { fontSize: 14, color: C.textSec, marginBottom: 16 },
+  pronDots: { flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 20 },
+  pronDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.bg3 },
+  pronDotDone: { backgroundColor: C.green },
+  pronDotActive: { borderWidth: 2, borderColor: C.gold, backgroundColor: C.card },
+  pronCard: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 28, alignItems: "center", marginBottom: 16 },
+  pronWord: { fontFamily: SERIF, fontSize: 28, fontWeight: "700", color: C.text, textAlign: "center" },
+  pronMeaning: { fontSize: 14, color: C.muted, marginTop: 6, textAlign: "center" },
+  pronListenBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, paddingHorizontal: 24, paddingVertical: 14, marginTop: 20 },
+  pronListenIcon: { fontSize: 20 },
+  pronListenText: { fontSize: 15, fontWeight: "700", color: C.gold },
+  pronActions: { flexDirection: "row", gap: 12, marginTop: 16, width: "100%" },
+  pronMicBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, paddingVertical: 14 },
+  pronMicIcon: { fontSize: 18 },
+  pronMicText: { fontSize: 14, fontWeight: "700", color: C.text },
+  pronSkipBtn: { flex: 1, backgroundColor: C.greenDim, borderRadius: 14, borderWidth: 1, borderColor: C.greenLine, paddingVertical: 14, alignItems: "center" },
+  pronSkipText: { fontSize: 14, fontWeight: "700", color: C.green },
+  pronTips: { backgroundColor: C.bg2, borderRadius: 14, padding: 16, marginBottom: 12 },
+  pronTipsTitle: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 10 },
+  pronTipRow: { flexDirection: "row", gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.border },
+  pronTipRule: { fontSize: 13, fontWeight: "800", color: C.text, width: 70 },
+  pronTipTrick: { fontSize: 13, color: C.muted, flex: 1 },
+  pronComplete: { backgroundColor: C.greenDim, borderRadius: 14, padding: 16, alignItems: "center" },
+  pronCompleteText: { fontSize: 15, fontWeight: "700", color: C.green },
+
+  // Word Order
+  wordOrderHint: { fontSize: 14, color: C.textSec, marginBottom: 12 },
+  wordOrderResult: { backgroundColor: C.card, borderRadius: 14, borderWidth: 2, borderColor: C.border, borderStyle: "dashed", padding: 18, marginBottom: 14, minHeight: 56, justifyContent: "center" },
+  wordOrderText: { fontSize: 18, fontWeight: "700", color: C.text, textAlign: "center" },
+  wordOrderPlaceholder: { fontSize: 14, color: C.muted, textAlign: "center" },
+  wordOrderChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 },
+  wordOrderChip: { backgroundColor: C.goldDim, borderRadius: 12, borderWidth: 1, borderColor: C.goldLine, paddingHorizontal: 16, paddingVertical: 10 },
+  wordOrderChipText: { fontSize: 15, fontWeight: "700", color: C.gold },
+  wordOrderActions: { flexDirection: "row", gap: 10 },
+  resetBtn: { flex: 1, backgroundColor: C.bg2, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  resetBtnText: { fontSize: 14, fontWeight: "700", color: C.muted },
+  checkBtn: { flex: 1, backgroundColor: C.gold, borderRadius: 12, paddingVertical: 14, alignItems: "center" },
+  checkBtnText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+
+  // Chat
+  chatBox: { marginBottom: 12, minHeight: 80 },
+  characterBadge: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 14, marginBottom: 14 },
+  characterName: { fontSize: 16, fontWeight: "800", color: C.text },
+  characterRole: { fontSize: 12, color: C.muted },
+  suggestBox: { marginBottom: 12 },
+  suggestTitle: { fontSize: 12, color: C.muted, marginBottom: 8 },
+  suggestChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  suggestChip: { backgroundColor: C.goldDim, borderRadius: 20, borderWidth: 1, borderColor: C.goldLine, paddingHorizontal: 14, paddingVertical: 8 },
+  suggestText: { fontSize: 13, fontWeight: "600", color: C.gold },
+  chatInputRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  chatInput: { flex: 1, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, color: C.text },
+  micBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  micBtnText: { fontSize: 20 },
+  sendBtn: { width: 48, height: 48, borderRadius: 14, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" },
+  sendBtnText: { fontSize: 20, fontWeight: "800", color: "#fff" },
+  chatSuccess: { fontSize: 15, fontWeight: "700", color: C.green, textAlign: "center", marginVertical: 12 },
+  chatProgress: { fontSize: 12, color: C.muted, textAlign: "center", marginTop: 8 },
+
+  // Self-rate
+  rateTitle: { fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, marginBottom: 8 },
+  rateDesc: { fontSize: 14, color: C.muted, marginBottom: 20 },
+  rateRow: { flexDirection: "row", justifyContent: "center", gap: 12 },
+  rateStar: { width: 48, height: 48, borderRadius: 24, backgroundColor: C.bg2, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  rateStarActive: { backgroundColor: C.goldDim, borderColor: C.gold },
+  rateStarText: { fontSize: 24, color: C.muted },
+  rateLabels: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 8, marginTop: 8 },
+  rateLabelText: { fontSize: 11, color: C.muted },
+  rateFeedback: { backgroundColor: C.greenDim, borderRadius: 14, padding: 16, marginTop: 16 },
+  rateFeedbackText: { fontSize: 14, color: C.green, lineHeight: 21 },
+
+  // Finish
+  finishTitle: { fontFamily: SERIF, fontSize: 28, fontWeight: "700", color: C.text },
+  finishSub: { fontSize: 14, color: C.muted, marginTop: 4 },
+  finishStats: { flexDirection: "row", gap: 24, marginTop: 24 },
+  finishStat: { alignItems: "center" },
+  finishStatNum: { fontSize: 24, fontWeight: "900", color: C.gold },
+  finishStatLabel: { fontSize: 11, color: C.muted, marginTop: 2 },
+  finishBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginTop: 28 },
+  finishBtnText: { fontSize: 17, fontWeight: "800", color: "#fff" },
+
+  // Next button (inline, used within cards)
+  nextBtn: { backgroundColor: C.gold, borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 20 },
+  nextBtnText: { fontSize: 16, fontWeight: "800", color: "#fff" },
+
+  // Fixed bottom bar
+  bottomBar: { flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingVertical: 12, paddingBottom: 24, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
+  bottomBackBtn: { paddingHorizontal: 20, paddingVertical: 16, borderRadius: 14, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
+  bottomBackText: { fontSize: 14, fontWeight: "700", color: C.muted },
+  bottomBtn: { flex: 2, backgroundColor: C.gold, borderRadius: 14, paddingVertical: 16, alignItems: "center" },
+  bottomBtnText: { fontSize: 16, fontWeight: "800", color: "#fff" },
 });
