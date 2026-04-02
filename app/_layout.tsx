@@ -77,6 +77,7 @@ export default function RootLayout() {
         <Stack.Screen name="word-of-day" options={{ animation: anim("slide_from_right") }} />
         <Stack.Screen name="conversation" options={{ animation: anim("slide_from_right") }} />
         <Stack.Screen name="review" options={{ animation: anim("slide_from_bottom") }} />
+        <Stack.Screen name="live-lesson" options={{ animation: anim("slide_from_bottom"), presentation: "modal" }} />
       </Stack>
     </AuthGate>
   );

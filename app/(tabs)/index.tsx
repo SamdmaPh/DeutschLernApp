@@ -224,7 +224,10 @@ export default function HomeScreen() {
                       isLocked && { opacity: 0.4 },
                     ]}
                     onPress={() => {
-                      if (!isLocked) router.push({ pathname: "/lesson", params: { lessonId: lesson.id } });
+                      if (!isLocked) {
+                        const path = lesson.id === "a1-0-1" ? "/live-lesson" : "/lesson";
+                        router.push({ pathname: path, params: { lessonId: lesson.id } });
+                      }
                     }}
                     activeOpacity={isLocked ? 1 : 0.7}
                   >
@@ -270,7 +273,10 @@ export default function HomeScreen() {
                 .filter(l => currentCity.lessonIds.includes(l.id))
                 .sort((a, b) => a.order_index - b.order_index)
                 .find(l => !done.includes(l.id));
-              if (next) router.push({ pathname: "/lesson", params: { lessonId: next.id } });
+              if (next) {
+                const path = next.id === "a1-0-1" ? "/live-lesson" : "/lesson";
+                router.push({ pathname: path, params: { lessonId: next.id } });
+              }
             }}
             activeOpacity={0.85}
           >
