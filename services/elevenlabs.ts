@@ -53,47 +53,54 @@ export const ElevenLabs = {
         const audio = new window.Audio(url);
         await audio.play();
       } else {
-        // Native: download to file → expo-av
+        // Native: fetch → base64 → write to file → expo-av
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
         });
 
-        const fileUri = FileSystem.cacheDirectory + `tts_${Date.now()}.mp3`;
-
-        // Download audio file directly
-        const downloadResult = await FileSystem.downloadAsync(
-          `${BASE}/text-to-speech/${voice}`,
-          fileUri,
-          {
-            headers: {
-              "xi-api-key": API_KEY,
-              "Content-Type": "application/json",
-            },
-            httpMethod: "POST",
-            body: JSON.stringify({
-              text,
-              model_id: "eleven_multilingual_v2",
-              voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-            }),
-          }
-        );
-
-        if (downloadResult.status !== 200) {
-          console.log("ElevenLabs download error:", downloadResult.status);
+        const res = await fetch(`${BASE}/text-to-speech/${voice}`, {
+          method: "POST",
+          headers: {
+            "xi-api-key": API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text,
+            model_id: "eleven_multilingual_v2",
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+          }),
+        });
+        if (!res.ok) {
+          console.log("ElevenLabs API error:", res.status);
           return;
         }
 
+        // Convert response to base64
+        const arrayBuffer = await res.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+
+        // Write to temp file
+        const fileUri = FileSystem.cacheDirectory + `tts_${Date.now()}.mp3`;
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        // Play the file
         const { sound } = await Audio.Sound.createAsync(
-          { uri: downloadResult.uri },
+          { uri: fileUri },
           { shouldPlay: true }
         );
 
         sound.setOnPlaybackStatusUpdate((status) => {
           if (status.isLoaded && status.didJustFinish) {
             sound.unloadAsync();
-            // Clean up temp file
-            FileSystem.deleteAsync(downloadResult.uri, { idempotent: true });
+            FileSystem.deleteAsync(fileUri, { idempotent: true });
           }
         });
       }
