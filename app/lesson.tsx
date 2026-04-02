@@ -13,15 +13,7 @@ import { ElevenLabs, CHARACTER_VOICES } from "../services/elevenlabs";
 import { SRS } from "../services/srs";
 import { C, SAFE_TOP, SERIF } from "../theme";
 
-// Web-compatible audio player
-async function playBase64Audio(base64: string) {
-  try {
-    const audio = new Audio(`data:audio/mp3;base64,${base64}`);
-    await audio.play();
-  } catch (e) {
-    console.log("Audio playback error:", e);
-  }
-}
+// Cross-platform audio player (not used anymore — ElevenLabs handles playback)
 
 // ═══ XP TRACKER ═══
 function XPPopup({ amount }: { amount: number }) {
