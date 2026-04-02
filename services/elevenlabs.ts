@@ -4,7 +4,7 @@
  */
 import { Platform } from "react-native";
 import { Audio } from "expo-av";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 const API_KEY = "sk_898eded090dfdf9ab27487cc51111a17aa33f17518ca666e";
 const BASE = "https://api.elevenlabs.io/v1";
