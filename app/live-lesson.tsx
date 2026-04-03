@@ -1,117 +1,127 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, StatusBar, Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ElevenLabs, VOICES } from "../services/elevenlabs";
+import { ElevenLabs, CHARACTER_VOICES, VOICES } from "../services/elevenlabs";
+import { AI, ChatMessage } from "../services/ai";
 import { Progress } from "../services/progress";
-import { SRS } from "../services/srs";
 import { C, SAFE_TOP, SERIF } from "../theme";
 
-// ═══ LESSON SCRIPTS ═══
-// Each lesson is a conversation script with explanations
-const LESSON_SCRIPTS: Record<string, any> = {
+// Lesson scripts — what the NPC says and what hints the user gets
+const LESSON_SCRIPTS: Record<string, {
+  character: string;
+  characterEmoji: string;
+  voiceId: string;
+  situation: string;
+  steps: { npc: string; translation: string; hint: string; suggestedResponse: string; responseTranslation: string }[];
+}> = {
   "a1-0-1": {
-    title: "Arrival at the Airport",
-    character: "Klaus",
-    characterRole: "Taxi driver",
+    character: "Klaus (Taxi driver)",
     characterEmoji: "🚕",
-    characterVoice: VOICES.male,
-    intro: "You just landed in Berlin. You don't speak any German yet. A friendly taxi driver named Klaus is waiting outside. Let's get you to your hostel!",
+    voiceId: VOICES.male,
+    situation: "You just landed at Berlin airport. Find a taxi and tell the driver where to go.",
     steps: [
       {
-        type: "npc_speaks",
-        german: "Guten Tag!",
-        english: "Good day!",
-        explain: "This is how Germans greet people during the day. 'Guten' means 'good' and 'Tag' means 'day'.",
-        newWords: [{ word: "Guten Tag", meaning: "Good day" }],
+        npc: "Guten Tag!",
+        translation: "Good day!",
+        hint: "He's greeting you. Say 'Good day!' back in German.",
+        suggestedResponse: "Guten Tag!",
+        responseTranslation: "Good day!",
       },
       {
-        type: "user_speaks",
-        prompt: "Say 'Good day' back to Klaus:",
-        target: "Guten Tag",
-        hint: "Guten Tag",
-        explain: "Great! You just greeted someone in German for the first time!",
+        npc: "Wohin möchten Sie?",
+        translation: "Where would you like to go?",
+        hint: "He's asking where you want to go. Tell him: 'To the hostel, please.'",
+        suggestedResponse: "Zum Hostel, bitte.",
+        responseTranslation: "To the hostel, please.",
       },
       {
-        type: "npc_speaks",
-        german: "Wohin möchten Sie?",
-        english: "Where would you like to go?",
-        explain: "'Wohin' means 'where to'. He's asking your destination. 'Sie' is the formal 'you' — used with strangers.",
-        newWords: [{ word: "Wohin", meaning: "Where to" }, { word: "Sie", meaning: "You (formal)" }],
+        npc: "Alles klar! Willkommen in Berlin!",
+        translation: "Got it! Welcome to Berlin!",
+        hint: "'Willkommen' means 'welcome'. Say 'thank you!'",
+        suggestedResponse: "Danke!",
+        responseTranslation: "Thank you!",
       },
       {
-        type: "user_speaks",
-        prompt: "Tell him to go to the hostel. Say 'To the hostel, please':",
-        target: "Zum Hostel, bitte",
-        hint: "Zum Hostel, bitte",
-        explain: "'Zum' means 'to the'. 'Bitte' means 'please'. You can use 'Zum [place], bitte' to go anywhere!",
-        newWords: [{ word: "bitte", meaning: "please" }, { word: "Zum", meaning: "to the" }],
+        npc: "Sprechen Sie Deutsch?",
+        translation: "Do you speak German?",
+        hint: "He's asking if you speak German. Say 'A little bit.'",
+        suggestedResponse: "Ein bisschen.",
+        responseTranslation: "A little bit.",
       },
       {
-        type: "npc_speaks",
-        german: "Alles klar. Willkommen in Berlin!",
-        english: "Got it. Welcome to Berlin!",
-        explain: "'Alles klar' means 'all clear' or 'got it'. 'Willkommen' means 'welcome'. Notice the W sounds like a V — 'Villkommen'!",
-        newWords: [{ word: "Willkommen", meaning: "Welcome" }, { word: "Alles klar", meaning: "Got it / All clear" }],
-      },
-      {
-        type: "user_speaks",
-        prompt: "Say 'Thank you':",
-        target: "Danke",
-        hint: "Danke",
-        explain: "'Danke' is 'thank you'. For 'thank you very much', say 'Danke schön'!",
-        newWords: [{ word: "Danke", meaning: "Thank you" }],
-      },
-      {
-        type: "npc_speaks",
-        german: "Sprechen Sie Deutsch?",
-        english: "Do you speak German?",
-        explain: "'Sprechen' means 'to speak'. He's asking if you speak German. The polite form uses 'Sie' again.",
-        newWords: [{ word: "Sprechen", meaning: "To speak" }],
-      },
-      {
-        type: "user_speaks",
-        prompt: "Tell him 'A little bit':",
-        target: "Ein bisschen",
-        hint: "Ein bisschen",
-        explain: "'Ein bisschen' means 'a little bit'. After this lesson, that's already true!",
-        newWords: [{ word: "Ein bisschen", meaning: "A little bit" }],
-      },
-      {
-        type: "npc_speaks",
-        german: "Sehr gut! Berlin ist toll!",
-        english: "Very good! Berlin is great!",
-        explain: "'Sehr gut' means 'very good' — he's impressed! 'Toll' means 'great' or 'awesome'.",
-        newWords: [{ word: "Sehr gut", meaning: "Very good" }, { word: "toll", meaning: "great / awesome" }],
+        npc: "Sehr gut! Berlin ist toll!",
+        translation: "Very good! Berlin is great!",
+        hint: "'Sehr gut' = 'Very good'. 'Toll' = 'great'. Say 'thank you very much!'",
+        suggestedResponse: "Danke schön!",
+        responseTranslation: "Thank you very much!",
       },
     ],
-    summary: {
-      wordsLearned: ["Guten Tag (Good day)", "bitte (please)", "Danke (thank you)", "Willkommen (Welcome)", "Wohin (Where to)", "Zum (to the)", "Ein bisschen (a little)", "Sehr gut (very good)", "toll (great)"],
-      phrasesLearned: ["Guten Tag! — Good day!", "Zum Hostel, bitte. — To the hostel, please.", "Danke! — Thank you!", "Ein bisschen. — A little bit."],
-      xp: 80,
-    },
+  },
+  "a1-0-2": {
+    character: "Frau Weber (Receptionist)",
+    characterEmoji: "🏨",
+    voiceId: VOICES.female,
+    situation: "You arrive at your hostel. Check in at the reception.",
+    steps: [
+      {
+        npc: "Guten Abend!",
+        translation: "Good evening!",
+        hint: "It's evening. Greet her back with 'Good evening!'",
+        suggestedResponse: "Guten Abend!",
+        responseTranslation: "Good evening!",
+      },
+      {
+        npc: "Haben Sie eine Reservierung?",
+        translation: "Do you have a reservation?",
+        hint: "'Haben Sie' = 'Do you have'. Say 'Yes.'",
+        suggestedResponse: "Ja.",
+        responseTranslation: "Yes.",
+      },
+      {
+        npc: "Ihr Name?",
+        translation: "Your name?",
+        hint: "She's asking your name. Just say your name!",
+        suggestedResponse: "Mein Name ist...",
+        responseTranslation: "My name is...",
+      },
+      {
+        npc: "Zimmer 204. Hier ist Ihr Schlüssel.",
+        translation: "Room 204. Here is your key.",
+        hint: "'Schlüssel' = 'key'. Ask if they have WiFi.",
+        suggestedResponse: "Haben Sie WLAN?",
+        responseTranslation: "Do you have WiFi?",
+      },
+      {
+        npc: "Ja! Das Passwort ist 'Berlin2024'.",
+        translation: "Yes! The password is 'Berlin2024'.",
+        hint: "She told you the WiFi password. Say 'Thank you very much!'",
+        suggestedResponse: "Danke schön!",
+        responseTranslation: "Thank you very much!",
+      },
+    ],
   },
 };
 
 export default function LiveLessonScreen() {
   const { lessonId } = useLocalSearchParams();
   const router = useRouter();
-  const [stepIdx, setStepIdx] = useState(0);
-  const [phase, setPhase] = useState<"intro" | "conversation" | "summary">("intro");
+  const [currentStep, setCurrentStep] = useState(0);
+  const [phase, setPhase] = useState<"npc" | "hint" | "respond" | "feedback">("npc");
   const [userInput, setUserInput] = useState("");
-  const [stepDone, setStepDone] = useState(false);
+  const [xp, setXp] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [totalXP, setTotalXP] = useState(0);
-  const [history, setHistory] = useState<any[]>([]);
-  const scrollRef = React.useRef<ScrollView>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [history, setHistory] = useState<{ speaker: string; text: string; translation: string }[]>([]);
+  const scrollRef = useRef<ScrollView>(null);
 
   const script = LESSON_SCRIPTS[lessonId as string];
   if (!script) {
     return (
       <View style={s.center}>
-        <Text style={s.errorText}>Lesson not found</Text>
+        <Text style={s.errorText}>Live lesson not available yet</Text>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={s.errorLink}>← Back</Text>
         </TouchableOpacity>
@@ -119,186 +129,62 @@ export default function LiveLessonScreen() {
     );
   }
 
-  const currentStep = script.steps[stepIdx];
-  const isLastStep = stepIdx >= script.steps.length - 1;
+  const step = script.steps[currentStep];
+  const totalSteps = script.steps.length;
+  const isFinished = currentStep >= totalSteps;
 
-  const addXP = (amount: number) => {
-    setTotalXP(prev => prev + amount);
-  };
-
-  const playNPCLine = async (text: string) => {
+  // Play NPC line with ElevenLabs
+  const playNpcLine = async () => {
+    if (!step) return;
     setIsPlaying(true);
-    await ElevenLabs.playText(text, script.characterVoice);
+    setPhase("npc");
+    setShowTranslation(false);
+
+    // Add to history
+    setHistory(h => [...h, { speaker: script.character, text: step.npc, translation: step.translation }]);
+
+    // Play audio
+    await ElevenLabs.playText(step.npc, script.voiceId);
     setIsPlaying(false);
+
+    // Show hint after NPC speaks
+    setTimeout(() => setPhase("hint"), 500);
+    scrollRef.current?.scrollToEnd({ animated: true });
   };
 
-  const handleUserSubmit = () => {
-    const input = userInput.trim().toLowerCase();
-    const target = (currentStep?.target || "").toLowerCase();
-    const isCorrect = input === target || target.includes(input) && input.length >= 3;
+  // Handle user response
+  const handleRespond = () => {
+    if (!step) return;
+    const response = userInput.trim() || step.suggestedResponse;
 
-    setHistory([...history, {
-      type: "user",
-      german: userInput.trim() || currentStep.hint,
-      correct: isCorrect,
-    }]);
-
-    addXP(isCorrect ? 10 : 5);
-    setStepDone(true);
+    // Add user response to history
+    setHistory(h => [...h, { speaker: "You", text: response, translation: step.responseTranslation }]);
     setUserInput("");
+    setXp(x => x + 10);
+    setPhase("feedback");
+    scrollRef.current?.scrollToEnd({ animated: true });
   };
 
-  const handleUseSuggestion = () => {
-    setHistory([...history, {
-      type: "user",
-      german: currentStep.hint,
-      correct: true,
-    }]);
-    addXP(5);
-    setStepDone(true);
-  };
-
-  const goNextStep = () => {
-    if (isLastStep) {
-      setPhase("summary");
-      return;
+  // Move to next step
+  const nextStep = () => {
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep(currentStep + 1);
+      setPhase("npc");
+      setShowTranslation(false);
+      // Auto-play next NPC line after short delay
+      setTimeout(() => {
+        playNpcLine();
+      }, 800);
+    } else {
+      setCurrentStep(totalSteps); // finished
     }
-
-    const nextIdx = stepIdx + 1;
-    const nextStep = script.steps[nextIdx];
-
-    // If next step is NPC speaking, add to history and auto-play
-    if (nextStep.type === "npc_speaks") {
-      setHistory(prev => [...prev, {
-        type: "npc",
-        german: nextStep.german,
-        english: nextStep.english,
-        explain: nextStep.explain,
-        newWords: nextStep.newWords,
-      }]);
-      playNPCLine(nextStep.german);
-    }
-
-    setStepIdx(nextIdx);
-    setStepDone(false);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
   };
 
-  // Start conversation
+  // Start the conversation
   const startConversation = () => {
-    const firstStep = script.steps[0];
-    setHistory([{
-      type: "npc",
-      german: firstStep.german,
-      english: firstStep.english,
-      explain: firstStep.explain,
-      newWords: firstStep.newWords,
-    }]);
-    playNPCLine(firstStep.german);
-    setPhase("conversation");
+    playNpcLine();
   };
 
-  // ═══ RENDER ═══
-
-  if (phase === "intro") {
-    return (
-      <View style={s.root}>
-        <StatusBar barStyle="dark-content" />
-        <View style={{ height: SAFE_TOP }} />
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.closeBtn}>✕</Text>
-          </TouchableOpacity>
-          <View style={s.xpBadge}><Text style={s.xpText}>⚡{totalXP}</Text></View>
-        </View>
-
-        <View style={s.introWrap}>
-          <Text style={s.introEmoji}>{script.characterEmoji}</Text>
-          <Text style={s.introTitle}>{script.title}</Text>
-          <Text style={s.introDesc}>{script.intro}</Text>
-
-          <View style={s.characterCard}>
-            <Text style={{ fontSize: 36 }}>{script.characterEmoji}</Text>
-            <View>
-              <Text style={s.charName}>{script.character}</Text>
-              <Text style={s.charRole}>{script.characterRole}</Text>
-              <Text style={s.charNote}>Will speak German to you</Text>
-            </View>
-          </View>
-
-          <View style={s.tipsBox}>
-            <Text style={s.tipsTitle}>💡 HOW THIS WORKS</Text>
-            <Text style={s.tipsText}>• {script.character} will speak German to you</Text>
-            <Text style={s.tipsText}>• You'll see English translations for everything</Text>
-            <Text style={s.tipsText}>• When it's your turn, type or speak the German phrase</Text>
-            <Text style={s.tipsText}>• Don't worry about mistakes — {script.character} is patient!</Text>
-          </View>
-
-          <TouchableOpacity style={s.startBtn} onPress={startConversation} activeOpacity={0.85}>
-            <Text style={s.startBtnText}>Start Conversation 🎙</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  if (phase === "summary") {
-    return (
-      <View style={s.root}>
-        <StatusBar barStyle="dark-content" />
-        <View style={{ height: SAFE_TOP }} />
-        <ScrollView contentContainerStyle={s.summaryWrap}>
-          <Text style={{ fontSize: 64, textAlign: "center" }}>🎉</Text>
-          <Text style={s.summaryTitle}>Conversation Complete!</Text>
-          <Text style={s.summarySub}>{script.title}</Text>
-
-          <View style={s.summaryStats}>
-            <View style={s.summaryStat}>
-              <Text style={s.summaryStatNum}>{totalXP + script.summary.xp}</Text>
-              <Text style={s.summaryStatLabel}>Total XP</Text>
-            </View>
-            <View style={s.summaryStat}>
-              <Text style={s.summaryStatNum}>{script.summary.wordsLearned.length}</Text>
-              <Text style={s.summaryStatLabel}>Words</Text>
-            </View>
-            <View style={s.summaryStat}>
-              <Text style={s.summaryStatNum}>{script.summary.phrasesLearned.length}</Text>
-              <Text style={s.summaryStatLabel}>Phrases</Text>
-            </View>
-          </View>
-
-          <View style={s.summarySection}>
-            <Text style={s.summarySectionTitle}>WORDS YOU LEARNED</Text>
-            {script.summary.wordsLearned.map((w: string, i: number) => (
-              <Text key={i} style={s.summaryWord}>• {w}</Text>
-            ))}
-          </View>
-
-          <View style={s.summarySection}>
-            <Text style={s.summarySectionTitle}>PHRASES YOU CAN SAY</Text>
-            {script.summary.phrasesLearned.map((p: string, i: number) => (
-              <Text key={i} style={s.summaryPhrase}>"{p}"</Text>
-            ))}
-          </View>
-
-          <TouchableOpacity style={s.finishBtn} onPress={async () => {
-            await Progress.addXP(totalXP + script.summary.xp);
-            await Progress.markComplete(lessonId as string);
-            const words = script.summary.wordsLearned.map((w: string) => {
-              const parts = w.split("(");
-              return { word: parts[0].trim(), meaning: parts[1]?.replace(")", "").trim() || "" };
-            });
-            await SRS.addWordsFromLesson(lessonId as string, words);
-            router.back();
-          }}>
-            <Text style={s.finishBtnText}>Continue your journey →</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    );
-  }
-
-  // ═══ CONVERSATION ═══
   return (
     <View style={s.root}>
       <StatusBar barStyle="dark-content" />
@@ -310,118 +196,127 @@ export default function LiveLessonScreen() {
           <Text style={s.closeBtn}>✕</Text>
         </TouchableOpacity>
         <View style={s.progressTrack}>
-          <View style={[s.progressFill, { width: `${((stepIdx + 1) / script.steps.length) * 100}%` }]} />
+          <View style={[s.progressFill, { width: `${((currentStep + 1) / totalSteps) * 100}%` }]} />
         </View>
-        <View style={s.xpBadge}><Text style={s.xpText}>⚡{totalXP}</Text></View>
+        <View style={s.xpBadge}><Text style={s.xpBadgeText}>⚡{xp}</Text></View>
       </View>
 
-      {/* Conversation */}
-      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={s.convScroll}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-        {history.map((item, i) => {
-          if (item.type === "npc") {
-            return (
-              <View key={i}>
-                {/* NPC bubble */}
-                <View style={s.npcBubble}>
-                  <Text style={s.npcName}>{script.character}</Text>
-                  <Text style={s.npcGerman}>{item.german}</Text>
-                  <Text style={s.npcEnglish}>{item.english}</Text>
-                </View>
-                {/* Explanation */}
-                <View style={s.explainBox}>
-                  <Text style={s.explainText}>💡 {item.explain}</Text>
-                </View>
-                {/* New words */}
-                {item.newWords?.map((w: any, j: number) => (
-                  <View key={j} style={s.newWordBadge}>
-                    <Text style={s.newWordText}>✨ New word: <Text style={s.newWordBold}>{w.word}</Text> = {w.meaning}</Text>
-                  </View>
-                ))}
-                {/* Replay button */}
-                <TouchableOpacity style={s.replayBtn} onPress={() => playNPCLine(item.german)} disabled={isPlaying}>
-                  <Text style={s.replayBtnText}>{isPlaying ? "⏳ Playing..." : "🔊 Listen again"}</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          } else {
-            return (
-              <View key={i} style={s.userBubble}>
-                <Text style={s.userName}>You</Text>
-                <Text style={s.userGerman}>{item.german}</Text>
-                {item.correct && <Text style={s.userCorrect}>✅</Text>}
-              </View>
-            );
-          }
-        })}
+        {/* Character intro */}
+        {history.length === 0 && !isFinished && (
+          <View style={s.introCard}>
+            <Text style={s.introEmoji}>{script.characterEmoji}</Text>
+            <Text style={s.introTitle}>Live Conversation</Text>
+            <Text style={s.introCharacter}>{script.character}</Text>
+            <Text style={s.introSituation}>{script.situation}</Text>
+            <View style={s.introTip}>
+              <Text style={s.introTipText}>💡 {script.character} will speak German. You'll get English hints to help you respond. Listen, understand, and speak!</Text>
+            </View>
+            <TouchableOpacity style={s.startBtn} onPress={startConversation} activeOpacity={0.85}>
+              <Text style={s.startBtnText}>Start Conversation 🎤</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* Current step: user input */}
-        {currentStep?.type === "user_speaks" && !stepDone && (
-          <View style={s.inputSection}>
-            <View style={s.yourTurnBox}>
-              <Text style={s.yourTurnLabel}>YOUR TURN</Text>
-              <Text style={s.yourTurnText}>{currentStep.prompt}</Text>
+        {/* Conversation history */}
+        {history.map((msg, i) => (
+          <View key={i} style={msg.speaker === "You" ? s.userBubbleWrap : s.npcBubbleWrap}>
+            <View style={msg.speaker === "You" ? s.userBubble : s.npcBubble}>
+              <Text style={s.bubbleSpeaker}>{msg.speaker}</Text>
+              <Text style={[s.bubbleText, msg.speaker === "You" && { color: "#fff" }]}>{msg.text}</Text>
+              <Text style={[s.bubbleTranslation, msg.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{msg.translation}</Text>
+            </View>
+          </View>
+        ))}
+
+        {/* Current interaction */}
+        {!isFinished && step && phase === "hint" && (
+          <View style={s.hintCard}>
+            <Text style={s.hintIcon}>💡</Text>
+            <Text style={s.hintText}>{step.hint}</Text>
+
+            {/* Suggested response */}
+            <View style={s.suggestCard}>
+              <Text style={s.suggestLabel}>YOU COULD SAY:</Text>
+              <TouchableOpacity style={s.suggestBtn} onPress={() => setUserInput(step.suggestedResponse)}>
+                <Text style={s.suggestGerman}>{step.suggestedResponse}</Text>
+                <Text style={s.suggestEnglish}>{step.responseTranslation}</Text>
+              </TouchableOpacity>
             </View>
 
+            {/* Input area */}
             <View style={s.inputRow}>
               <TextInput
                 style={s.input}
                 value={userInput}
                 onChangeText={setUserInput}
-                placeholder="Type in German..."
+                placeholder="Type or use suggestion..."
                 placeholderTextColor={C.muted}
-                onSubmitEditing={handleUserSubmit}
-                returnKeyType="send"
-                autoFocus
+                onSubmitEditing={handleRespond}
               />
-              <TouchableOpacity style={s.sendBtn} onPress={handleUserSubmit}>
-                <Text style={s.sendBtnText}>→</Text>
+              {/* Mic button */}
+              <TouchableOpacity style={s.micBtn} onPress={() => {
+                if (typeof window !== "undefined" && (window as any).webkitSpeechRecognition) {
+                  const SR = (window as any).webkitSpeechRecognition;
+                  const recognition = new SR();
+                  recognition.lang = "de-DE";
+                  recognition.onresult = (event: any) => setUserInput(event.results[0][0].transcript);
+                  recognition.start();
+                }
+              }}>
+                <Text style={s.micText}>🎤</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.sendBtn} onPress={handleRespond}>
+                <Text style={s.sendText}>→</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        )}
 
-            {/* Suggestion */}
-            <TouchableOpacity style={s.suggestionBtn} onPress={handleUseSuggestion}>
-              <Text style={s.suggestionText}>💡 Not sure? Use: <Text style={s.suggestionBold}>"{currentStep.hint}"</Text></Text>
-            </TouchableOpacity>
-
-            {/* Mic button */}
-            <TouchableOpacity style={s.micBtn} onPress={() => {
-              if (Platform.OS === "web" && (window as any).webkitSpeechRecognition) {
-                const SR = (window as any).webkitSpeechRecognition;
-                const recognition = new SR();
-                recognition.lang = "de-DE";
-                recognition.onresult = (e: any) => setUserInput(e.results[0][0].transcript);
-                recognition.start();
-              }
-            }}>
-              <Text style={s.micBtnText}>🎤 Speak instead</Text>
+        {/* Feedback after response */}
+        {!isFinished && phase === "feedback" && (
+          <View style={s.feedbackCard}>
+            <Text style={s.feedbackEmoji}>✅</Text>
+            <Text style={s.feedbackText}>Great! +10 XP</Text>
+            <TouchableOpacity style={s.nextStepBtn} onPress={nextStep}>
+              <Text style={s.nextStepText}>{currentStep < totalSteps - 1 ? "Continue conversation →" : "Finish! →"}</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Explanation after user speaks */}
-        {currentStep?.type === "user_speaks" && stepDone && (
-          <View>
-            <View style={s.explainBox}>
-              <Text style={s.explainText}>💡 {currentStep.explain}</Text>
-            </View>
-            {currentStep.newWords?.map((w: any, j: number) => (
-              <View key={j} style={s.newWordBadge}>
-                <Text style={s.newWordText}>✨ New word: <Text style={s.newWordBold}>{w.word}</Text> = {w.meaning}</Text>
+        {/* NPC speaking indicator */}
+        {isPlaying && (
+          <View style={s.playingCard}>
+            <Text style={s.playingText}>🔊 {script.character} is speaking...</Text>
+          </View>
+        )}
+
+        {/* Finished */}
+        {isFinished && (
+          <View style={s.finishCard}>
+            <Text style={{ fontSize: 56, marginBottom: 12 }}>🎉</Text>
+            <Text style={s.finishTitle}>Conversation Complete!</Text>
+            <Text style={s.finishSub}>You just talked to {script.character} in German!</Text>
+            <View style={s.finishStats}>
+              <View style={s.finishStat}>
+                <Text style={s.finishStatNum}>{xp + 50}</Text>
+                <Text style={s.finishStatLabel}>XP earned</Text>
               </View>
-            ))}
+              <View style={s.finishStat}>
+                <Text style={s.finishStatNum}>{totalSteps}</Text>
+                <Text style={s.finishStatLabel}>Exchanges</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={s.finishBtn} onPress={async () => {
+              await Progress.addXP(xp + 50);
+              router.back();
+            }}>
+              <Text style={s.finishBtnText}>Continue your journey →</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
-
-      {/* Bottom: Continue button */}
-      {stepDone && (
-        <View style={s.bottomBar}>
-          <TouchableOpacity style={s.continueBtn} onPress={goNextStep} activeOpacity={0.85}>
-            <Text style={s.continueBtnText}>{isLastStep ? "See what you learned →" : "Continue →"}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }
@@ -431,87 +326,69 @@ const s = StyleSheet.create({
   center: { flex: 1, backgroundColor: C.bg, justifyContent: "center", alignItems: "center" },
   errorText: { fontSize: 18, color: C.red },
   errorLink: { color: C.gold, fontSize: 16, marginTop: 16 },
-
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
   closeBtn: { color: C.muted, fontSize: 22, width: 28 },
   progressTrack: { flex: 1, height: 8, backgroundColor: C.bg3, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", backgroundColor: C.gold, borderRadius: 4 },
   xpBadge: { backgroundColor: C.goldDim, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
-  xpText: { fontSize: 13, fontWeight: "800", color: C.gold },
+  xpBadgeText: { fontSize: 13, fontWeight: "800", color: C.gold },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
   // Intro
-  introWrap: { flex: 1, paddingHorizontal: 24, paddingTop: 20, alignItems: "center" },
-  introEmoji: { fontSize: 64, marginBottom: 16 },
-  introTitle: { fontFamily: SERIF, fontSize: 26, fontWeight: "700", color: C.text, textAlign: "center" },
-  introDesc: { fontSize: 15, color: C.textSec, textAlign: "center", lineHeight: 22, marginTop: 12, marginBottom: 24 },
-  characterCard: { flexDirection: "row", alignItems: "center", gap: 16, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.goldLine, padding: 18, width: "100%", marginBottom: 20 },
-  charName: { fontSize: 18, fontWeight: "800", color: C.text },
-  charRole: { fontSize: 13, color: C.muted, marginTop: 2 },
-  charNote: { fontSize: 12, color: C.gold, marginTop: 4, fontWeight: "600" },
-  tipsBox: { backgroundColor: C.bg2, borderRadius: 16, padding: 18, width: "100%", marginBottom: 24 },
-  tipsTitle: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 10 },
-  tipsText: { fontSize: 14, color: C.textSec, lineHeight: 22 },
-  startBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40 },
+  introCard: { alignItems: "center", paddingVertical: 32 },
+  introEmoji: { fontSize: 56, marginBottom: 12 },
+  introTitle: { fontSize: 12, fontWeight: "900", color: C.gold, letterSpacing: 2 },
+  introCharacter: { fontFamily: SERIF, fontSize: 24, fontWeight: "700", color: C.text, marginTop: 8 },
+  introSituation: { fontSize: 15, color: C.muted, textAlign: "center", lineHeight: 22, marginTop: 8, paddingHorizontal: 20 },
+  introTip: { backgroundColor: C.goldDim, borderRadius: 14, padding: 16, marginTop: 20 },
+  introTipText: { fontSize: 13, color: C.gold, lineHeight: 20, textAlign: "center" },
+  startBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginTop: 24 },
   startBtnText: { fontSize: 17, fontWeight: "800", color: "#fff" },
 
-  // Conversation
-  convScroll: { paddingHorizontal: 20, paddingBottom: 100 },
+  // Bubbles
+  npcBubbleWrap: { alignItems: "flex-start", marginBottom: 12 },
+  userBubbleWrap: { alignItems: "flex-end", marginBottom: 12 },
+  npcBubble: { backgroundColor: C.card, borderRadius: 18, borderTopLeftRadius: 4, borderWidth: 1, borderColor: C.border, padding: 16, maxWidth: "85%" },
+  userBubble: { backgroundColor: C.gold, borderRadius: 18, borderTopRightRadius: 4, padding: 16, maxWidth: "85%" },
+  bubbleSpeaker: { fontSize: 10, fontWeight: "800", color: C.muted, marginBottom: 4 },
+  bubbleText: { fontSize: 17, fontWeight: "600", color: C.text, lineHeight: 24 },
+  bubbleTranslation: { fontSize: 13, color: C.muted, marginTop: 6, fontStyle: "italic" },
 
-  npcBubble: { backgroundColor: C.card, borderRadius: 18, borderTopLeftRadius: 4, borderWidth: 1, borderColor: C.border, padding: 16, marginTop: 16, maxWidth: "88%" },
-  npcName: { fontSize: 11, fontWeight: "800", color: C.gold, marginBottom: 6 },
-  npcGerman: { fontSize: 18, fontWeight: "700", color: C.text, lineHeight: 26 },
-  npcEnglish: { fontSize: 14, color: C.muted, marginTop: 6, fontStyle: "italic" },
-
-  userBubble: { backgroundColor: C.gold, borderRadius: 18, borderTopRightRadius: 4, padding: 16, marginTop: 12, alignSelf: "flex-end", maxWidth: "88%", flexDirection: "row", alignItems: "center", gap: 8 },
-  userName: { fontSize: 11, fontWeight: "800", color: "rgba(255,255,255,0.7)", position: "absolute", top: 6, left: 16 },
-  userGerman: { fontSize: 17, fontWeight: "700", color: "#fff", marginTop: 14 },
-  userCorrect: { fontSize: 16 },
-
-  explainBox: { backgroundColor: C.blueDim, borderRadius: 12, padding: 14, marginTop: 10 },
-  explainText: { fontSize: 14, color: C.blue, lineHeight: 21 },
-
-  newWordBadge: { backgroundColor: C.goldDim, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, marginTop: 6, alignSelf: "flex-start" },
-  newWordText: { fontSize: 13, color: C.gold },
-  newWordBold: { fontWeight: "800" },
-
-  replayBtn: { alignSelf: "flex-start", marginTop: 8, paddingVertical: 6 },
-  replayBtnText: { fontSize: 13, color: C.muted, fontWeight: "600" },
-
-  // Input
-  inputSection: { marginTop: 16 },
-  yourTurnBox: { backgroundColor: C.greenDim, borderRadius: 14, borderLeftWidth: 3, borderLeftColor: C.green, padding: 16, marginBottom: 12 },
-  yourTurnLabel: { fontSize: 10, fontWeight: "900", color: C.green, letterSpacing: 2, marginBottom: 4 },
-  yourTurnText: { fontSize: 15, color: C.text, lineHeight: 22 },
-
+  // Hint
+  hintCard: { backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.goldLine, padding: 20, marginTop: 8 },
+  hintIcon: { fontSize: 20, marginBottom: 8 },
+  hintText: { fontSize: 15, color: C.text, lineHeight: 22, marginBottom: 16 },
+  suggestCard: { marginBottom: 16 },
+  suggestLabel: { fontSize: 9, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 8 },
+  suggestBtn: { backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16 },
+  suggestGerman: { fontSize: 18, fontWeight: "700", color: C.text },
+  suggestEnglish: { fontSize: 13, color: C.muted, marginTop: 4 },
   inputRow: { flexDirection: "row", gap: 8 },
-  input: { flex: 1, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: C.text },
-  sendBtn: { width: 52, height: 52, borderRadius: 14, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" },
-  sendBtnText: { fontSize: 22, fontWeight: "800", color: "#fff" },
+  input: { flex: 1, backgroundColor: C.bg, borderRadius: 14, borderWidth: 1, borderColor: C.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: C.text },
+  micBtn: { width: 50, height: 50, borderRadius: 14, backgroundColor: C.bg2, borderWidth: 1, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  micText: { fontSize: 20 },
+  sendBtn: { width: 50, height: 50, borderRadius: 14, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" },
+  sendText: { fontSize: 22, fontWeight: "800", color: "#fff" },
 
-  suggestionBtn: { backgroundColor: C.bg2, borderRadius: 12, padding: 14, marginTop: 10 },
-  suggestionText: { fontSize: 13, color: C.muted },
-  suggestionBold: { fontWeight: "800", color: C.gold },
+  // Feedback
+  feedbackCard: { alignItems: "center", paddingVertical: 16 },
+  feedbackEmoji: { fontSize: 32, marginBottom: 4 },
+  feedbackText: { fontSize: 16, fontWeight: "700", color: C.green },
+  nextStepBtn: { backgroundColor: C.gold, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 32, marginTop: 12 },
+  nextStepText: { fontSize: 15, fontWeight: "800", color: "#fff" },
 
-  micBtn: { backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.border, padding: 14, marginTop: 8, alignItems: "center" },
-  micBtnText: { fontSize: 14, fontWeight: "600", color: C.text },
+  // Playing
+  playingCard: { alignItems: "center", paddingVertical: 12 },
+  playingText: { fontSize: 14, color: C.gold, fontWeight: "600" },
 
-  // Bottom
-  bottomBar: { paddingHorizontal: 20, paddingVertical: 12, paddingBottom: 24, borderTopWidth: 1, borderTopColor: C.border, backgroundColor: C.bg },
-  continueBtn: { backgroundColor: C.gold, borderRadius: 14, paddingVertical: 16, alignItems: "center" },
-  continueBtnText: { fontSize: 16, fontWeight: "800", color: "#fff" },
-
-  // Summary
-  summaryWrap: { padding: 24, paddingBottom: 60, alignItems: "center" },
-  summaryTitle: { fontFamily: SERIF, fontSize: 28, fontWeight: "700", color: C.text, marginTop: 12 },
-  summarySub: { fontSize: 14, color: C.muted, marginTop: 4 },
-  summaryStats: { flexDirection: "row", gap: 24, marginTop: 24, marginBottom: 24 },
-  summaryStat: { alignItems: "center" },
-  summaryStatNum: { fontSize: 24, fontWeight: "900", color: C.gold },
-  summaryStatLabel: { fontSize: 11, color: C.muted, marginTop: 2 },
-  summarySection: { width: "100%", marginBottom: 20 },
-  summarySectionTitle: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 10 },
-  summaryWord: { fontSize: 14, color: C.text, lineHeight: 24 },
-  summaryPhrase: { fontSize: 15, fontWeight: "600", color: C.text, lineHeight: 26 },
-  finishBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginTop: 12 },
+  // Finish
+  finishCard: { alignItems: "center", paddingVertical: 32 },
+  finishTitle: { fontFamily: SERIF, fontSize: 26, fontWeight: "700", color: C.text },
+  finishSub: { fontSize: 15, color: C.muted, marginTop: 8, textAlign: "center" },
+  finishStats: { flexDirection: "row", gap: 32, marginTop: 24 },
+  finishStat: { alignItems: "center" },
+  finishStatNum: { fontSize: 28, fontWeight: "900", color: C.gold },
+  finishStatLabel: { fontSize: 12, color: C.muted, marginTop: 4 },
+  finishBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginTop: 28 },
   finishBtnText: { fontSize: 17, fontWeight: "800", color: "#fff" },
 });

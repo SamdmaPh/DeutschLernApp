@@ -224,10 +224,7 @@ export default function HomeScreen() {
                       isLocked && { opacity: 0.4 },
                     ]}
                     onPress={() => {
-                      if (!isLocked) {
-                        const path = lesson.id === "a1-0-1" ? "/live-lesson" : "/lesson";
-                        router.push({ pathname: path, params: { lessonId: lesson.id } });
-                      }
+                      if (!isLocked) router.push({ pathname: "/lesson", params: { lessonId: lesson.id } });
                     }}
                     activeOpacity={isLocked ? 1 : 0.7}
                   >
@@ -273,10 +270,7 @@ export default function HomeScreen() {
                 .filter(l => currentCity.lessonIds.includes(l.id))
                 .sort((a, b) => a.order_index - b.order_index)
                 .find(l => !done.includes(l.id));
-              if (next) {
-                const path = next.id === "a1-0-1" ? "/live-lesson" : "/lesson";
-                router.push({ pathname: path, params: { lessonId: next.id } });
-              }
+              if (next) router.push({ pathname: "/lesson", params: { lessonId: next.id } });
             }}
             activeOpacity={0.85}
           >
@@ -299,6 +293,24 @@ export default function HomeScreen() {
         {/* Tap hint */}
         {!selected && (
           <Text style={s.tapHint}>Tap a city on the board to see missions</Text>
+        )}
+
+        {/* Live Conversation */}
+        {currentCity && (
+          <TouchableOpacity style={s.liveCard} onPress={() => {
+            const nextLesson = ALL_STATIC_LESSONS
+              .filter(l => currentCity.lessonIds.includes(l.id))
+              .sort((a, b) => a.order_index - b.order_index)
+              .find(l => !done.includes(l.id));
+            if (nextLesson) router.push({ pathname: "/live-lesson", params: { lessonId: nextLesson.id } });
+          }} activeOpacity={0.8}>
+            <Text style={{ fontSize: 24 }}>🎙</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.liveTitle}>Live Conversation</Text>
+              <Text style={s.liveSub}>Talk to a real character in German!</Text>
+            </View>
+            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>→</Text>
+          </TouchableOpacity>
         )}
 
         {/* Daily Review */}
@@ -376,6 +388,11 @@ const s = StyleSheet.create({
   quickPlayBtnText: { color: "#fff", fontSize: 22 },
 
   tapHint: { fontSize: 12, color: C.muted, textAlign: "center", marginTop: 16, fontStyle: "italic" },
+
+  // Live conversation
+  liveCard: { flexDirection: "row", alignItems: "center", gap: 14, marginHorizontal: 16, marginTop: 16, backgroundColor: C.gold, borderRadius: 16, padding: 16 },
+  liveTitle: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  liveSub: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 },
 
   // Review
   reviewCard: { flexDirection: "row", alignItems: "center", gap: 14, marginHorizontal: 16, marginTop: 16, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.goldLine, padding: 16 },
