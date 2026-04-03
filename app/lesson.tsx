@@ -85,10 +85,10 @@ export default function LessonScreen() {
     cards.push({ type: "listen", title: lesson.listening.title, transcript: lesson.listening.transcript, translation: lesson.listening.english_translation, highlights: lesson.listening.vocabulary_highlighted });
   }
 
-  // 3. COMPREHENSION — global understanding
-  const firstTask = lesson.exercises?.[0]?.tasks?.[0];
-  if (firstTask?.options) {
-    cards.push({ type: "comprehension", question: firstTask.question, options: firstTask.options, answer: firstTask.answer ?? firstTask.correct ?? 0 });
+  // 3. COMPREHENSION — multiple questions about the dialogue
+  const compTasks = lesson.exercises?.[0]?.tasks?.filter((t: any) => t.options) || [];
+  if (compTasks.length > 0) {
+    cards.push({ type: "comprehensionMulti", tasks: compTasks.map((t: any) => ({ question: t.question, options: t.options, answer: t.answer ?? t.correct ?? 0 })) });
   }
 
   // 4. MATCH — connect words
@@ -379,22 +379,59 @@ export default function LessonScreen() {
       }
 
       // ── 3. COMPREHENSION ──
+      // Old single comprehension (fallback)
       case "comprehension": {
         const ans = answers[step];
         const answered = ans !== undefined;
         const correct = ans === card.answer;
         return (
           <View style={s.cardInner}>
-            <Text style={s.cardEmoji}>✅</Text>
             <Text style={s.label}>DID YOU UNDERSTAND?</Text>
             <Text style={s.quizQ}>{card.question}</Text>
             {card.options.map((opt: string, i: number) => (
               <TouchableOpacity key={i} style={[s.optBtn, answered && i === card.answer && s.optCorrect, answered && ans === i && ans !== card.answer && s.optWrong]} onPress={() => { if (!answered) { setAnswers({ ...answers, [step]: i }); if (i === card.answer) addXP(5); } }} activeOpacity={answered ? 1 : 0.7}>
                 <Text style={[s.optText, answered && i === card.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
-                {answered && i === card.answer && <Text style={{ color: C.green, fontWeight: "800" }}>✓</Text>}
               </TouchableOpacity>
             ))}
             {answered && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>{correct ? "Correct! ✓" : "Continue →"}</Text></TouchableOpacity>}
+          </View>
+        );
+      }
+
+      // Multi-comprehension (all check questions in one card)
+      case "comprehensionMulti": {
+        const [compIdx, setCompIdx] = React.useState(0);
+        const compTask = card.tasks?.[compIdx];
+        const compAns = answers[`comp-${compIdx}`];
+        const compAnswered = compAns !== undefined;
+        const compCorrect = compAns === compTask?.answer;
+        const allCompDone = compIdx >= (card.tasks?.length || 0);
+
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>DID YOU UNDERSTAND?</Text>
+
+            {!allCompDone && compTask ? (
+              <>
+                <Text style={s.sceneProgress}>Question {compIdx + 1} of {card.tasks?.length || 0}</Text>
+                <Text style={s.quizQ}>{compTask.question}</Text>
+                {compTask.options.map((opt: string, i: number) => (
+                  <TouchableOpacity key={i} style={[s.optBtn, compAnswered && i === compTask.answer && s.optCorrect, compAnswered && compAns === i && compAns !== compTask.answer && s.optWrong]} onPress={() => { if (!compAnswered) { setAnswers({ ...answers, [`comp-${compIdx}`]: i }); if (i === compTask.answer) addXP(5); } }} activeOpacity={compAnswered ? 1 : 0.7}>
+                    <Text style={[s.optText, compAnswered && i === compTask.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
+                    {compAnswered && i === compTask.answer && <Text style={{ color: C.green, fontWeight: "800" }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+                {compAnswered && (
+                  <TouchableOpacity style={s.nextBtn} onPress={() => { setCompIdx(compIdx + 1); }}>
+                    <Text style={s.nextBtnText}>{compCorrect ? "Correct! Next →" : "Next question →"}</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <View style={s.pronComplete}>
+                <Text style={s.pronCompleteText}>🎉 All questions answered! +{(card.tasks?.length || 0) * 5} XP</Text>
+              </View>
+            )}
           </View>
         );
       }
@@ -1150,12 +1187,12 @@ const s = StyleSheet.create({
   closeBtn: { color: C.muted, fontSize: 22, width: 28 },
 
   // Phase navigation bar
-  phaseBar: { paddingHorizontal: 12, paddingVertical: 6, gap: 4 },
-  phaseDot: { alignItems: "center", paddingHorizontal: 4, paddingVertical: 4, borderRadius: 8, width: 40, height: 36 },
+  phaseBar: { paddingHorizontal: 8, paddingVertical: 4, gap: 2 },
+  phaseDot: { alignItems: "center", justifyContent: "center", borderRadius: 8, width: 36, height: 32 },
   phaseDotActive: { backgroundColor: C.goldDim, borderWidth: 1.5, borderColor: C.gold },
   phaseDotDone: { backgroundColor: C.greenDim },
-  phaseDotEmoji: { fontSize: 12 },
-  phaseDotLabel: { fontSize: 8, fontWeight: "700", color: C.muted, marginTop: 2 },
+  phaseDotEmoji: { fontSize: 11 },
+  phaseDotLabel: { fontSize: 7, fontWeight: "700", color: C.muted, marginTop: 1 },
   phaseDotLabelActive: { color: C.gold },
 
   // Phase title
