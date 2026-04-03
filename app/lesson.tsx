@@ -150,19 +150,15 @@ export default function LessonScreen() {
     });
   }
 
-  // 9. WORD ORDER — use a phrase with 3+ words
+  // 9. WORD ORDER — multiple sentences to build
   if (lesson.vocabulary?.phrases) {
-    // Find the longest phrase with 3+ words
-    const bestPhrase = lesson.vocabulary.phrases
+    const allPhrases = lesson.vocabulary.phrases
       .map((p: string) => p.split("::")[0].trim())
-      .filter((p: string) => p.replace(/[.,!?]/g, "").split(" ").length >= 3)
-      .sort((a: string, b: string) => b.split(" ").length - a.split(" ").length)[0]
-      || lesson.vocabulary.phrases[1]?.split("::")[0]?.trim()
-      || lesson.vocabulary.phrases[0]?.split("::")[0]?.trim();
-    if (bestPhrase) {
-      const cleanPhrase = bestPhrase.replace(/[!?]/g, "").trim();
-      const words = cleanPhrase.split(" ").filter(Boolean);
-      cards.push({ type: "wordOrder", words, expected: bestPhrase });
+      .filter((p: string) => p.replace(/[.,!?]/g, "").split(" ").length >= 2);
+    // Take up to 4 phrases for word order exercises
+    const wordOrderPhrases = allPhrases.slice(0, 4);
+    if (wordOrderPhrases.length > 0) {
+      cards.push({ type: "wordOrderMulti", phrases: wordOrderPhrases });
     }
   }
 
@@ -176,15 +172,28 @@ export default function LessonScreen() {
     });
   }
 
-  // 10. AI CONVERSATION
-  cards.push({
-    type: "chat",
-    mission: lesson.description,
-    character: lesson.listening?.transcript?.split(":")[0]?.trim() || "Partner",
-    topic: lesson.title,
-    level: lesson.cefrLevel || "A1",
-    suggestions: lesson.vocabulary?.phrases?.slice(0, 3).map((p: string) => p.split("::")[0].trim()) || ["Guten Tag!", "Danke!"],
-  });
+  // 10. INTERACTIVE DIALOG (like a game — multiple choice responses)
+  const dialogSteps = lesson.listening?.transcript?.split("\n").filter(Boolean) || [];
+  const character = dialogSteps[0]?.split(":")[0]?.trim() || "Partner";
+  const interactiveDialog: any[] = [];
+  for (let i = 0; i < dialogSteps.length; i++) {
+    const line = dialogSteps[i];
+    const [speaker, ...rest] = line.split(":");
+    const text = rest.join(":").trim();
+    if (speaker.trim() === "You" && text) {
+      // User line — create choice
+      const wrongOptions = lesson.vocabulary?.phrases?.slice(0, 2).map((p: string) => p.split("::")[0].trim()) || ["Tschüss!", "Nein!"];
+      const options = [text, ...wrongOptions.filter((w: string) => w !== text)].slice(0, 3).sort(() => Math.random() - 0.5);
+      const correctIdx = options.indexOf(text);
+      interactiveDialog.push({ type: "choice", text, options, answer: correctIdx >= 0 ? correctIdx : 0 });
+    } else if (text) {
+      // NPC line
+      interactiveDialog.push({ type: "npc", speaker: speaker.trim(), text });
+    }
+  }
+  if (interactiveDialog.length > 0) {
+    cards.push({ type: "dialog", character, steps: interactiveDialog, situation: lesson.description });
+  }
 
   // 11. SELF-RATE
   cards.push({ type: "selfrate" });
@@ -753,6 +762,67 @@ export default function LessonScreen() {
         );
       }
 
+      // ── 9. WORD ORDER MULTI (multiple sentences) ──
+      case "wordOrderMulti": {
+        const [woIdx, setWoIdx] = React.useState(0);
+        const [woWords, setWoWords] = React.useState<string[]>([]);
+        const [woChecked, setWoChecked] = React.useState(false);
+        const currentPhrase = card.phrases?.[woIdx] || "";
+        const cleanPhrase = currentPhrase.replace(/[!?,\.]/g, "").trim();
+        const expectedWords = cleanPhrase.split(" ").filter(Boolean);
+        const shuffled = [...expectedWords].sort(() => 0.5 - Math.random());
+        const result = woWords.join(" ");
+        const isCorrect = woChecked && result.toLowerCase() === cleanPhrase.toLowerCase();
+        const allWoDone = woIdx >= (card.phrases?.length || 0);
+
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>BUILD THE SENTENCE</Text>
+            <Text style={s.wordOrderHint}>Sentence {Math.min(woIdx + 1, card.phrases?.length || 0)} of {card.phrases?.length || 0}</Text>
+
+            {!allWoDone ? (
+              <>
+                <View style={s.wordOrderResult}>
+                  {woWords.length > 0 ? (
+                    <Text style={s.wordOrderText}>{woWords.join(" ")}</Text>
+                  ) : (
+                    <Text style={s.wordOrderPlaceholder}>Tap words below...</Text>
+                  )}
+                </View>
+                <View style={s.wordOrderChips}>
+                  {(woWords.length === 0 ? shuffled : expectedWords.filter(w => !woWords.includes(w))).map((w, i) => (
+                    <TouchableOpacity key={`${w}-${i}`} style={s.wordOrderChip} onPress={() => setWoWords([...woWords, w])}>
+                      <Text style={s.wordOrderChipText}>{w}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {woWords.length > 0 && !woChecked && (
+                  <View style={s.wordOrderActions}>
+                    <TouchableOpacity style={s.resetBtn} onPress={() => setWoWords([])}>
+                      <Text style={s.resetBtnText}>Reset</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.checkBtn} onPress={() => { setWoChecked(true); if (result.toLowerCase() === cleanPhrase.toLowerCase()) addXP(10); }}>
+                      <Text style={s.checkBtnText}>Check ✓</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {woChecked && isCorrect && <Text style={s.correctFeedback}>✅ Perfect! "{currentPhrase}"</Text>}
+                {woChecked && !isCorrect && <Text style={s.wrongFeedback}>Correct: "{currentPhrase}"</Text>}
+                {woChecked && (
+                  <TouchableOpacity style={s.nextBtn} onPress={() => { setWoIdx(woIdx + 1); setWoWords([]); setWoChecked(false); }}>
+                    <Text style={s.nextBtnText}>{woIdx < (card.phrases?.length || 0) - 1 ? "Next sentence →" : "Done! →"}</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              <View style={s.pronComplete}>
+                <Text style={s.pronCompleteText}>🎉 All sentences built! +{(card.phrases?.length || 0) * 10} XP</Text>
+              </View>
+            )}
+          </View>
+        );
+      }
+
       // ── 9b. WRITING EXERCISE ──
       case "write": {
         return (
@@ -806,49 +876,76 @@ export default function LessonScreen() {
       }
 
       // ── 10. AI CONVERSATION ──
+      // ── 10. INTERACTIVE DIALOG (game-like) ──
+      case "dialog": {
+        const [dialogStep, setDialogStep] = React.useState(0);
+        const [dialogHistory, setDialogHistory] = React.useState<{speaker: string; text: string}[]>([]);
+        const [dialogAnswered, setDialogAnswered] = React.useState(false);
+        const currentDialogStep = card.steps?.[dialogStep];
+        const dialogDone = dialogStep >= (card.steps?.length || 0);
+
+        // Process: show NPC lines automatically, pause on choice lines
+        React.useEffect(() => {
+          if (currentDialogStep?.type === "npc" && !dialogDone) {
+            setDialogHistory(h => [...h, { speaker: currentDialogStep.speaker, text: currentDialogStep.text }]);
+            ElevenLabs.playCharacterLine(currentDialogStep.speaker, currentDialogStep.text);
+            setTimeout(() => setDialogStep(dialogStep + 1), 2000);
+          }
+        }, [dialogStep]);
+
+        return (
+          <View style={s.cardInner}>
+            <Text style={s.label}>YOUR TURN TO SPEAK!</Text>
+            <Text style={s.dialogSituation}>📍 {card.situation}</Text>
+
+            {/* Dialog history */}
+            {dialogHistory.map((msg, i) => (
+              <View key={i} style={msg.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
+                <Text style={s.bubbleSpeaker}>{msg.speaker}</Text>
+                <Text style={[s.bubbleText, msg.speaker === "You" && { color: "#fff" }]}>{msg.text}</Text>
+              </View>
+            ))}
+
+            {/* Choice for user */}
+            {!dialogDone && currentDialogStep?.type === "choice" && !dialogAnswered && (
+              <View style={s.dialogChoiceBox}>
+                <Text style={s.dialogChoiceTitle}>💬 What do you say?</Text>
+                {currentDialogStep.options.map((opt: string, i: number) => (
+                  <TouchableOpacity key={i} style={s.dialogChoice} onPress={() => {
+                    setDialogHistory(h => [...h, { speaker: "You", text: opt }]);
+                    setDialogAnswered(true);
+                    if (i === currentDialogStep.answer) addXP(10);
+                    setTimeout(() => {
+                      setDialogStep(dialogStep + 1);
+                      setDialogAnswered(false);
+                    }, 1500);
+                  }} activeOpacity={0.7}>
+                    <Text style={s.dialogChoiceText}>{opt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Waiting for NPC */}
+            {!dialogDone && currentDialogStep?.type === "npc" && (
+              <Text style={s.playingText}>🔊 {currentDialogStep.speaker} is speaking...</Text>
+            )}
+
+            {/* Dialog complete */}
+            {dialogDone && (
+              <View style={s.pronComplete}>
+                <Text style={s.pronCompleteText}>🎉 Conversation complete!</Text>
+              </View>
+            )}
+          </View>
+        );
+      }
+
+      // Keep old chat as fallback
       case "chat":
         return (
           <View style={s.cardInner}>
-            <Text style={s.cardEmoji}>🎙</Text>
-            <Text style={s.label}>CONVERSATION PRACTICE</Text>
-            <View style={s.missionBox}>
-              <Text style={s.missionLabel}>YOUR MISSION</Text>
-              <Text style={s.missionText}>{card.mission}</Text>
-            </View>
-            <View style={s.characterBadge}>
-              <Text style={{ fontSize: 28 }}>🚕</Text>
-              <View>
-                <Text style={s.characterName}>{card.character}</Text>
-                <Text style={s.characterRole}>will talk to you in German</Text>
-              </View>
-            </View>
-            <View style={s.chatBox}>
-              {chatMessages.length === 0 && (
-                <View style={s.bubbleLeft}>
-                  <Text style={s.bubbleSpeaker}>{card.character}</Text>
-                  <Text style={s.bubbleText}>Guten Tag! Wohin möchten Sie?</Text>
-                </View>
-              )}
-              {chatMessages.map((m, i) => (
-                <View key={i} style={m.role === "user" ? s.bubbleRight : s.bubbleLeft}>
-                  <Text style={s.bubbleSpeaker}>{m.role === "user" ? "You" : card.character}</Text>
-                  <Text style={[s.bubbleText, m.role === "user" && { color: "#fff" }]}>{m.content}</Text>
-                </View>
-              ))}
-              {chatLoading && <View style={s.bubbleLeft}><Text style={s.bubbleText}>💬 typing...</Text></View>}
-            </View>
-            {chatMessages.filter(m => m.role === "user").length < 3 && (
-              <View style={s.suggestBox}>
-                <Text style={s.suggestTitle}>💡 You could say:</Text>
-                <View style={s.suggestChips}>
-                  {card.suggestions.map((sug: string, i: number) => (
-                    <TouchableOpacity key={i} style={s.suggestChip} onPress={() => sendChat(sug)}>
-                      <Text style={s.suggestText}>{sug}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
+            <Text style={s.label}>CONVERSATION</Text>
             <View style={s.chatInputRow}>
               <TextInput style={s.chatInput} value={chatInput} onChangeText={setChatInput} placeholder="Type in German..." placeholderTextColor={C.muted} onSubmitEditing={() => sendChat()} returnKeyType="send" />
               {/* Microphone button (Web Speech API) */}
@@ -902,29 +999,66 @@ export default function LessonScreen() {
               <View>
                 <View style={s.rateFeedback}>
                   <Text style={s.rateFeedbackText}>
-                    {selfRating <= 2 ? "That's okay! You can replay this lesson anytime. Practice makes perfect. 💪" :
-                     selfRating === 3 ? "Good start! You're getting there. Try the AI conversation again to build confidence. 🎯" :
-                     "Amazing! You're picking this up fast. Ready for the next challenge! 🚀"}
+                    {selfRating <= 2 ? "💪 That's okay! This lesson has been added to your review list. You can replay it anytime — practice makes perfect!" :
+                     selfRating === 3 ? "🎯 Good start! Try the Live Conversation feature to practice speaking. The more you speak, the more confident you'll get." :
+                     selfRating === 4 ? "🚀 Great job! You're building a solid foundation. Your character is getting stronger!" :
+                     "⭐ Amazing! You nailed this lesson. Your skill tree is growing!"}
                   </Text>
                 </View>
-                <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>Continue →</Text></TouchableOpacity>
+                {selfRating <= 2 && (
+                  <View style={s.rateAction}>
+                    <Text style={s.rateActionText}>📝 This lesson was added to your Daily Review</Text>
+                  </View>
+                )}
+                {selfRating >= 4 && (
+                  <View style={[s.rateAction, { backgroundColor: C.greenDim, borderColor: C.greenLine }]}>
+                    <Text style={[s.rateActionText, { color: C.green }]}>🌳 +1 Skill unlocked in your skill tree!</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
         );
 
       // ── 12. CELEBRATION ──
-      case "finish":
+      case "finish": {
+        const rewards = ["🌭 You earned a Bratwurst!", "🍺 You earned a Berliner Weisse!", "🥨 You earned a Pretzel!", "🧳 Your character got a new suitcase!"];
+        const reward = rewards[lesson.order_index % rewards.length];
+        const nextLessonTitle = ALL_STATIC_LESSONS.find((l: any) => l.order_index === lesson.order_index + 1)?.title;
         return (
           <View style={[s.cardInner, { alignItems: "center" }]}>
-            <Text style={{ fontSize: 64, marginBottom: 12 }}>🎉</Text>
+            <Text style={{ fontSize: 64, marginBottom: 8 }}>🎉</Text>
             <Text style={s.finishTitle}>Mission Complete!</Text>
             <Text style={s.finishSub}>{card.title}</Text>
+
+            {/* Stats */}
             <View style={s.finishStats}>
               <View style={s.finishStat}><Text style={s.finishStatNum}>{totalXP + card.xp}</Text><Text style={s.finishStatLabel}>Total XP</Text></View>
               <View style={s.finishStat}><Text style={s.finishStatNum}>{card.wordsLearned}</Text><Text style={s.finishStatLabel}>Words</Text></View>
-              <View style={s.finishStat}><Text style={s.finishStatNum}>{selfRating}/5</Text><Text style={s.finishStatLabel}>Confidence</Text></View>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{selfRating > 0 ? `${selfRating}/5` : "—"}</Text><Text style={s.finishStatLabel}>Confidence</Text></View>
             </View>
+
+            {/* Reward */}
+            <View style={s.rewardBox}>
+              <Text style={s.rewardText}>{reward}</Text>
+            </View>
+
+            {/* What XP does */}
+            <View style={s.xpExplain}>
+              <Text style={s.xpExplainTitle}>WHAT YOUR XP DOES:</Text>
+              <Text style={s.xpExplainText}>🗺️ Moves your character across Germany</Text>
+              <Text style={s.xpExplainText}>🌳 Unlocks new skills in your skill tree</Text>
+              <Text style={s.xpExplainText}>🏛️ Opens new cities to explore</Text>
+            </View>
+
+            {/* Next mission preview */}
+            {nextLessonTitle && (
+              <View style={s.nextPreview}>
+                <Text style={s.nextPreviewLabel}>NEXT MISSION:</Text>
+                <Text style={s.nextPreviewTitle}>{nextLessonTitle}</Text>
+              </View>
+            )}
+
             <TouchableOpacity style={s.finishBtn} onPress={async () => {
               await Progress.addXP(totalXP + card.xp);
               await Progress.markComplete(lesson.id);
@@ -938,13 +1072,14 @@ export default function LessonScreen() {
             </TouchableOpacity>
           </View>
         );
+      }
 
       default: return null;
     }
   };
 
   // Phase names for the navigation bar
-  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Scene", "Grammar", "Words", "Build", "Write", "Talk", "Rate", "Done"];
+  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Scene", "Grammar", "Words", "Build", "Write", "Dialog", "Rate", "Done"];
 
   return (
     <View style={s.root}>
@@ -1047,6 +1182,13 @@ const s = StyleSheet.create({
   missionBox: { backgroundColor: C.goldDim, borderRadius: 14, borderLeftWidth: 3, borderLeftColor: C.gold, padding: 16, marginTop: 16 },
   missionLabel: { fontSize: 9, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 4 },
   missionText: { fontSize: 14, color: C.text, lineHeight: 20 },
+
+  // Interactive dialog
+  dialogSituation: { fontSize: 14, color: C.gold, backgroundColor: C.goldDim, borderRadius: 12, padding: 14, marginBottom: 16, lineHeight: 20 },
+  dialogChoiceBox: { marginTop: 12 },
+  dialogChoiceTitle: { fontSize: 14, fontWeight: "700", color: C.text, marginBottom: 10 },
+  dialogChoice: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.goldLine, padding: 16, marginBottom: 10 },
+  dialogChoiceText: { fontSize: 16, fontWeight: "600", color: C.text },
 
   // Audio
   audioPlayBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.goldLine, padding: 16, marginBottom: 10 },
@@ -1225,6 +1367,8 @@ const s = StyleSheet.create({
   rateLabelText: { fontSize: 11, color: C.muted },
   rateFeedback: { backgroundColor: C.greenDim, borderRadius: 14, padding: 16, marginTop: 16 },
   rateFeedbackText: { fontSize: 14, color: C.green, lineHeight: 21 },
+  rateAction: { backgroundColor: C.goldDim, borderRadius: 12, borderWidth: 1, borderColor: C.goldLine, padding: 14, marginTop: 10, alignItems: "center" },
+  rateActionText: { fontSize: 13, fontWeight: "700", color: C.gold },
 
   // Finish
   finishTitle: { fontFamily: SERIF, fontSize: 28, fontWeight: "700", color: C.text },
@@ -1233,7 +1377,15 @@ const s = StyleSheet.create({
   finishStat: { alignItems: "center" },
   finishStatNum: { fontSize: 24, fontWeight: "900", color: C.gold },
   finishStatLabel: { fontSize: 11, color: C.muted, marginTop: 2 },
-  finishBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginTop: 28 },
+  rewardBox: { backgroundColor: C.goldDim, borderRadius: 16, borderWidth: 1, borderColor: C.goldLine, paddingVertical: 16, paddingHorizontal: 24, marginTop: 16, alignItems: "center" },
+  rewardText: { fontSize: 18, fontWeight: "700", color: C.gold },
+  xpExplain: { backgroundColor: C.bg2, borderRadius: 14, padding: 16, marginTop: 16, width: "100%" },
+  xpExplainTitle: { fontSize: 9, fontWeight: "900", color: C.muted, letterSpacing: 2, marginBottom: 10 },
+  xpExplainText: { fontSize: 13, color: C.textSec, lineHeight: 22 },
+  nextPreview: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16, marginTop: 16, width: "100%", alignItems: "center" },
+  nextPreviewLabel: { fontSize: 9, fontWeight: "900", color: C.gold, letterSpacing: 2 },
+  nextPreviewTitle: { fontSize: 16, fontWeight: "700", color: C.text, marginTop: 6 },
+  finishBtn: { backgroundColor: C.gold, borderRadius: 16, paddingVertical: 18, paddingHorizontal: 40, marginTop: 20 },
   finishBtnText: { fontSize: 17, fontWeight: "800", color: "#fff" },
 
   // Next button (inline, used within cards)
