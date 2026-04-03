@@ -296,14 +296,7 @@ export default function HomeScreen() {
         )}
 
         {/* Live Conversation */}
-        {currentCity && (
-          <TouchableOpacity style={s.liveCard} onPress={() => {
-            const nextLesson = ALL_STATIC_LESSONS
-              .filter(l => currentCity.lessonIds.includes(l.id))
-              .sort((a, b) => a.order_index - b.order_index)
-              .find(l => !done.includes(l.id));
-            if (nextLesson) router.push({ pathname: "/live-lesson", params: { lessonId: nextLesson.id } });
-          }} activeOpacity={0.8}>
+        <TouchableOpacity style={s.liveCard} onPress={() => router.push("/live-lesson")} activeOpacity={0.8}>
             <Text style={{ fontSize: 24 }}>🎙</Text>
             <View style={{ flex: 1 }}>
               <Text style={s.liveTitle}>Live Conversation</Text>
@@ -311,7 +304,6 @@ export default function HomeScreen() {
             </View>
             <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>→</Text>
           </TouchableOpacity>
-        )}
 
         {/* Daily Review */}
         <TouchableOpacity style={s.reviewCard} onPress={() => router.push("/review")} activeOpacity={0.8}>
