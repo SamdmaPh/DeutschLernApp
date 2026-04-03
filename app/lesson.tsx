@@ -51,6 +51,13 @@ export default function LessonScreen() {
   const [pronPlaying, setPronPlaying] = useState(false);
   const [pronDone, setPronDone] = useState<number[]>([]);
   const [sceneIdx, setSceneIdx] = useState(0);
+  const [compIdx, setCompIdx] = useState(0);
+  const [woIdx, setWoIdx] = useState(0);
+  const [woWords, setWoWords] = useState<string[]>([]);
+  const [woChecked, setWoChecked] = useState(false);
+  const [dialogStep, setDialogStep] = useState(0);
+  const [dialogHistory, setDialogHistory] = useState<{speaker: string; text: string}[]>([]);
+  const [dialogAnswered, setDialogAnswered] = useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
 
   const lesson = ALL_STATIC_LESSONS.find((l) => l.id === lessonId) as any;
@@ -400,7 +407,7 @@ export default function LessonScreen() {
 
       // Multi-comprehension (all check questions in one card)
       case "comprehensionMulti": {
-        const [compIdx, setCompIdx] = React.useState(0);
+
         const compTask = card.tasks?.[compIdx];
         const compAns = answers[`comp-${compIdx}`];
         const compAnswered = compAns !== undefined;
@@ -801,9 +808,9 @@ export default function LessonScreen() {
 
       // ── 9. WORD ORDER MULTI (multiple sentences) ──
       case "wordOrderMulti": {
-        const [woIdx, setWoIdx] = React.useState(0);
-        const [woWords, setWoWords] = React.useState<string[]>([]);
-        const [woChecked, setWoChecked] = React.useState(false);
+
+
+
         const currentPhrase = card.phrases?.[woIdx] || "";
         const cleanPhrase = currentPhrase.replace(/[!?,\.]/g, "").trim();
         const expectedWords = cleanPhrase.split(" ").filter(Boolean);
@@ -915,20 +922,13 @@ export default function LessonScreen() {
       // ── 10. AI CONVERSATION ──
       // ── 10. INTERACTIVE DIALOG (game-like) ──
       case "dialog": {
-        const [dialogStep, setDialogStep] = React.useState(0);
-        const [dialogHistory, setDialogHistory] = React.useState<{speaker: string; text: string}[]>([]);
-        const [dialogAnswered, setDialogAnswered] = React.useState(false);
+
+
+
         const currentDialogStep = card.steps?.[dialogStep];
         const dialogDone = dialogStep >= (card.steps?.length || 0);
 
-        // Process: show NPC lines automatically, pause on choice lines
-        React.useEffect(() => {
-          if (currentDialogStep?.type === "npc" && !dialogDone) {
-            setDialogHistory(h => [...h, { speaker: currentDialogStep.speaker, text: currentDialogStep.text }]);
-            ElevenLabs.playCharacterLine(currentDialogStep.speaker, currentDialogStep.text);
-            setTimeout(() => setDialogStep(dialogStep + 1), 2000);
-          }
-        }, [dialogStep]);
+        // Process NPC lines via button tap (no useEffect in switch)
 
         return (
           <View style={s.cardInner}>
@@ -963,9 +963,15 @@ export default function LessonScreen() {
               </View>
             )}
 
-            {/* Waiting for NPC */}
+            {/* NPC line — tap to hear and advance */}
             {!dialogDone && currentDialogStep?.type === "npc" && (
-              <Text style={s.playingText}>🔊 {currentDialogStep.speaker} is speaking...</Text>
+              <TouchableOpacity style={s.npcPlayBtn} onPress={async () => {
+                setDialogHistory(h => [...h, { speaker: currentDialogStep.speaker, text: currentDialogStep.text }]);
+                await ElevenLabs.playCharacterLine(currentDialogStep.speaker, currentDialogStep.text);
+                setDialogStep(dialogStep + 1);
+              }} activeOpacity={0.7}>
+                <Text style={s.npcPlayText}>🔊 Hear {currentDialogStep.speaker} speak → tap here</Text>
+              </TouchableOpacity>
             )}
 
             {/* Dialog complete */}
@@ -1226,6 +1232,8 @@ const s = StyleSheet.create({
   dialogChoiceTitle: { fontSize: 14, fontWeight: "700", color: C.text, marginBottom: 10 },
   dialogChoice: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.goldLine, padding: 16, marginBottom: 10 },
   dialogChoiceText: { fontSize: 16, fontWeight: "600", color: C.text },
+  npcPlayBtn: { backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16, alignItems: "center", marginTop: 8 },
+  npcPlayText: { fontSize: 14, fontWeight: "700", color: C.gold },
 
   // Audio
   audioPlayBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.goldLine, padding: 16, marginBottom: 10 },
