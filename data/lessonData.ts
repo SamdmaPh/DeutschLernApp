@@ -77,17 +77,19 @@ export const LESSON_DATA_A1 = [
       { type: "recognition", difficulty: 1, instruction: "Choose the correct answer.", tasks: [
         { question: "What happened in the dialogue? (Pick the best summary.)", options: ["You ordered food at a restaurant.", "You took a taxi to your hostel in Berlin.", "You checked into a hotel."], correct: 1 },
         { question: "The taxi driver says 'Guten Tag'. How should you reply?", options: ["Tschüss!", "Guten Tag!", "Nein!"], correct: 1 },
-        { question: "What does 'Danke' mean?", options: ["Please", "Thank you", "Hello"], correct: 1 }
+        { question: "What does 'Danke' mean?", options: ["Please", "Thank you", "Hello"], correct: 1 },
+        { question: "You want to go to the hostel. What do you say to the driver?", options: ["Zum Hostel, bitte.", "Guten Tag!", "Danke schön!"], correct: 0 },
+        { question: "The driver asks 'Sprechen Sie Deutsch?' — What is he asking?", options: ["Where are you going?", "Do you speak German?", "What is your name?"], correct: 1 }
       ]},
       { type: "recall", difficulty: 2, instruction: "Fill in the correct form.", tasks: [
         { question: "How do you say 'please' in German? (You heard it in the dialogue.)", options: ["Danke", "Bitte", "Hallo"], correct: 1 },
         { question: "How do you say 'thank you' in German?", options: ["Bitte", "Tschüss", "Danke"], correct: 2 },
         { question: "The taxi driver asked 'Sprechen Sie Deutsch?' — What does 'Sie' mean here?", options: ["She", "You (formal)", "They"], correct: 1 }
       ]},
-      { type: "production", difficulty: 3, instruction: "Build the sentence from the words given.", tasks: [
-        { prompt: "Tell the driver where to go. (Hint: ___ Hostel, _____.)", expected: "Zum Hostel, bitte" },
-        { prompt: "Say 'Good day' in German. (Hint: Guten _____)", expected: "Guten Tag" },
-        { prompt: "Say 'Thank you very much!' (Hint: Danke _____!)", expected: "Danke schön" }
+      { type: "production", difficulty: 3, instruction: "Fill in the missing word. Just type the ONE word that goes in the blank.", tasks: [
+        { prompt: "Say 'Good day': Guten _____", expected: "Tag" },
+        { prompt: "Say 'please': _____", expected: "Bitte" },
+        { prompt: "Say 'thank you': _____", expected: "Danke" }
       ]}
     ],
     culture_note: "In Germany, you greet strangers with 'Guten Tag' (Good day) — it's the safe, polite option. Among friends, 'Hallo' is fine. Taxi drivers in Berlin are often chatty and love it when tourists try German. Tipping: just round up (€12.50 → €13).",
