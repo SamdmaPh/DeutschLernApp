@@ -134,6 +134,8 @@ export default function LessonScreen() {
       type: "grammar",
       concept: lesson.grammar.concept,
       rule: lesson.grammar.rule,
+      patterns: lesson.grammar.patterns,
+      commonMistakes: lesson.grammar.common_mistakes,
       mnemonic: lesson.grammar.mnemonic,
       quiz: quiz ? { question: quiz.question, options: quiz.options, answer: quiz.answer ?? quiz.correct ?? 0 } : null,
     });
@@ -592,22 +594,81 @@ export default function LessonScreen() {
         const answered = q && ans !== undefined;
         return (
           <View style={s.cardInner}>
-            <Text style={s.cardEmoji}>💡</Text>
-            <Text style={s.label}>GOOD TO KNOW</Text>
+            <Text style={s.label}>GRAMMAR</Text>
             <Text style={s.grammarTitle}>{card.concept}</Text>
-            <View style={s.grammarBox}><Text style={s.grammarText}>{card.rule}</Text></View>
-            {card.mnemonic && <View style={s.mnemonicBox}><Text style={s.mnemonicText}>🧠 {card.mnemonic}</Text></View>}
+
+            {/* Rule explanation */}
+            <View style={s.grammarBox}>
+              <Text style={s.grammarText}>{card.rule}</Text>
+            </View>
+
+            {/* Conjugation table (like Grammatik aktiv) */}
+            {card.patterns && card.patterns.length > 0 && card.patterns[0]?.person && (
+              <View style={s.conjugTable}>
+                <Text style={s.conjugTitle}>CONJUGATION TABLE</Text>
+                {card.patterns.map((p: any, i: number) => (
+                  <View key={i} style={[s.conjugRow, i % 2 === 0 && { backgroundColor: C.bg2 }]}>
+                    <Text style={s.conjugPerson}>{p.person || p.sound}</Text>
+                    <Text style={s.conjugForm}>
+                      {(p.conjugation || p.form || "").split("").map((char: string, j: number) => {
+                        // Highlight the ending in gold (last 1-3 chars that differ)
+                        const form = p.conjugation || p.form || "";
+                        const isEnding = j >= form.length - 3 && form.length > 2;
+                        return <Text key={j} style={isEnding ? { color: C.gold, fontWeight: "900" } : {}}>{char}</Text>;
+                      })}
+                    </Text>
+                    <Text style={s.conjugExample}>{p.example || ""}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Pronunciation patterns (for lesson 1 style) */}
+            {card.patterns && card.patterns.length > 0 && card.patterns[0]?.sound && !card.patterns[0]?.person && (
+              <View style={s.conjugTable}>
+                <Text style={s.conjugTitle}>PRONUNCIATION RULES</Text>
+                {card.patterns.map((p: any, i: number) => (
+                  <View key={i} style={[s.conjugRow, i % 2 === 0 && { backgroundColor: C.bg2 }]}>
+                    <Text style={[s.conjugPerson, { color: C.gold }]}>{p.sound}</Text>
+                    <Text style={s.conjugExample}>{p.english_trick || p.examples?.[0] || ""}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Common mistakes */}
+            {card.commonMistakes && card.commonMistakes.length > 0 && (
+              <View style={s.mistakesBox}>
+                <Text style={s.mistakesTitle}>⚠️ COMMON MISTAKES</Text>
+                {card.commonMistakes.map((m: any, i: number) => (
+                  <View key={i} style={s.mistakeRow}>
+                    <Text style={s.mistakeWrong}>❌ {m.wrong}</Text>
+                    <Text style={s.mistakeRight}>✅ {m.right}</Text>
+                    <Text style={s.mistakeExpl}>{m.explanation}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Mnemonic */}
+            {card.mnemonic && (
+              <View style={s.mnemonicBox}>
+                <Text style={s.mnemonicText}>🧠 {card.mnemonic}</Text>
+              </View>
+            )}
+
+            {/* Quiz */}
             {q && (
-              <>
-                <Text style={[s.quizQ, { marginTop: 20 }]}>{q.question}</Text>
+              <View style={{ marginTop: 20 }}>
+                <Text style={s.conjugTitle}>PRACTICE</Text>
+                <Text style={s.quizQ}>{q.question}</Text>
                 {q.options.map((opt: string, i: number) => (
                   <TouchableOpacity key={i} style={[s.optBtn, answered && i === q.answer && s.optCorrect, answered && ans === i && ans !== q.answer && s.optWrong]} onPress={() => { if (!answered) { setAnswers({ ...answers, [step]: i }); if (i === q.answer) addXP(10); } }} activeOpacity={answered ? 1 : 0.7}>
                     <Text style={[s.optText, answered && i === q.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
                   </TouchableOpacity>
                 ))}
-              </>
+              </View>
             )}
-            {(answered || !q) && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>Continue →</Text></TouchableOpacity>}
           </View>
         );
       }
@@ -1049,9 +1110,25 @@ const s = StyleSheet.create({
   chipText: { fontSize: 15, fontWeight: "600", color: C.text },
 
   // Grammar
-  grammarTitle: { fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, marginBottom: 10 },
-  grammarBox: { backgroundColor: C.card, borderRadius: 14, borderLeftWidth: 3, borderLeftColor: C.purple, padding: 18, marginBottom: 12 },
+  grammarTitle: { fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: C.text, marginBottom: 12 },
+  grammarBox: { backgroundColor: C.card, borderRadius: 14, borderLeftWidth: 3, borderLeftColor: C.purple, padding: 18, marginBottom: 16 },
   grammarText: { fontSize: 15, color: C.text, lineHeight: 24 },
+
+  // Conjugation table (like Grammatik aktiv)
+  conjugTable: { backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, overflow: "hidden", marginBottom: 16 },
+  conjugTitle: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, padding: 14, paddingBottom: 8 },
+  conjugRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.bg2 },
+  conjugPerson: { width: 70, fontSize: 13, fontWeight: "800", color: C.purple },
+  conjugForm: { width: 80, fontSize: 16, fontWeight: "700", color: C.text },
+  conjugExample: { flex: 1, fontSize: 12, color: C.muted, fontStyle: "italic" },
+
+  // Common mistakes
+  mistakesBox: { backgroundColor: C.redDim, borderRadius: 14, borderWidth: 1, borderColor: C.redLine, padding: 16, marginBottom: 16 },
+  mistakesTitle: { fontSize: 10, fontWeight: "900", color: C.red, letterSpacing: 2, marginBottom: 12 },
+  mistakeRow: { marginBottom: 12 },
+  mistakeWrong: { fontSize: 14, color: C.red, fontWeight: "600", textDecorationLine: "line-through" },
+  mistakeRight: { fontSize: 14, color: C.green, fontWeight: "700", marginTop: 4 },
+  mistakeExpl: { fontSize: 12, color: C.muted, marginTop: 4, fontStyle: "italic" },
   mnemonicBox: { backgroundColor: C.greenDim, borderRadius: 12, padding: 14 },
   mnemonicText: { fontSize: 14, color: C.green, lineHeight: 20 },
   ruleCard: { backgroundColor: C.blueDim, borderRadius: 12, padding: 14, marginBottom: 14 },
