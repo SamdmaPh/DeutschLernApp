@@ -136,7 +136,9 @@ export const LESSON_DATA_A1 = [
         { person: "ich", conjugation: "habe", example: "Ich habe eine Reservierung. (I have a reservation.)" },
         { person: "du", conjugation: "hast", example: "Hast du WLAN? (Do you have WiFi? — informal)" },
         { person: "er/sie/es", conjugation: "hat", example: "Das Hostel hat Frühstück. (The hostel has breakfast.)" },
-        { person: "Sie (formal)", conjugation: "haben", example: "Haben Sie einen Schlüssel? (Do you have a key?)" }
+        { person: "wir", conjugation: "haben", example: "Wir haben Zimmer 204. (We have room 204.)" },
+        { person: "ihr", conjugation: "habt", example: "Habt ihr Hunger? (Are you guys hungry?)" },
+        { person: "sie/Sie", conjugation: "haben", example: "Haben Sie einen Schlüssel? (Do you have a key?)" }
       ],
       common_mistakes: [
         { wrong: "Ich hat eine Reservierung.", right: "Ich HABE eine Reservierung.", explanation: "With 'ich' always use 'habe', not 'hat'" },

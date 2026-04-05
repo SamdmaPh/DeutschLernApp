@@ -110,28 +110,27 @@ export default function LessonScreen() {
     cards.push({ type: "match", words: matchWords });
   }
 
-  // 5. PRONUNCIATION — Listen & Repeat with key phrases
-  if (lesson.vocabulary?.phrases) {
-    const pronWords = lesson.vocabulary.phrases.slice(0, 4).map((p: string) => {
-      const [de, en] = p.split("::").map((s: string) => s.trim());
+  // 5. PRONUNCIATION — Listen & Repeat with CORE VOCABULARY
+  if (lesson.vocabulary?.core) {
+    const pronWords = lesson.vocabulary.core.slice(0, 5).map((w: string) => {
+      const [de, en] = w.split("::").map((s: string) => s.trim());
       return { de, en };
     });
     cards.push({ type: "pronunciation", words: pronWords, rules: lesson.grammar?.patterns?.slice(0, 3) });
   }
 
-  // 6. SCENE — multiple interactive questions about the situation
-  const sceneTasks = lesson.exercises?.[0]?.tasks?.slice(1).filter((t: any) => t.options) || [];
-  if (sceneTasks.length > 0) {
-    cards.push({
-      type: "scene",
-      situation: lesson.description,
-      tasks: sceneTasks.map((t: any) => ({
-        question: t.question,
-        options: t.options,
-        answer: t.answer ?? t.correct ?? 0,
-      })),
-      image: img,
+  // 6. USE IT — Apply phrases in context (fill-in-the-blank, not quiz)
+  if (lesson.vocabulary?.phrases) {
+    const useItTasks = lesson.vocabulary.phrases.slice(0, 4).map((p: string) => {
+      const [de, en] = p.split("::").map((s: string) => s.trim());
+      // Create fill-in-the-blank: remove a key word
+      const words = de.split(" ");
+      const blankIdx = Math.max(0, Math.floor(words.length / 2));
+      const answer = words[blankIdx];
+      const withBlank = words.map((w: string, i: number) => i === blankIdx ? "_____" : w).join(" ");
+      return { sentence: withBlank, answer, fullSentence: de, meaning: en };
     });
+    cards.push({ type: "useIt", tasks: useItTasks, situation: lesson.description });
   }
 
   // 7. GRAMMAR + mini quiz (use recall tasks that have options)
@@ -634,48 +633,79 @@ export default function LessonScreen() {
       }
 
       // ── 6. SCENE ──
-      case "scene": {
-        const sceneTask = card.tasks?.[sceneIdx];
-        const sceneAns = answers[`scene-${sceneIdx}`];
-        const sceneAnswered = sceneAns !== undefined;
-        const sceneCorrect = sceneAns === sceneTask?.answer;
-        const allSceneDone = sceneIdx >= (card.tasks?.length || 0);
+      // Old scene (kept as fallback)
+      case "scene":
+        return <View style={s.cardInner}><Text style={s.label}>SCENE</Text></View>;
+
+      // ── 6. USE IT — fill in the blank in context ──
+      case "useIt": {
+        const useTask = card.tasks?.[sceneIdx];
+        const useChecked = writeChecked[`use-${sceneIdx}`];
+        const useAnswer = writeAnswers[`use-${sceneIdx}`] || "";
+        const useCorrect = useChecked && useAnswer.trim().toLowerCase() === useTask?.answer?.toLowerCase();
+        const allUseDone = sceneIdx >= (card.tasks?.length || 0);
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>IN THE SCENE</Text>
+            <Text style={s.label}>USE IT!</Text>
+            <Text style={s.pronSubtitle}>Complete the phrase. Fill in the missing word.</Text>
 
-            {/* Situation context */}
             <View style={s.sceneSituation}>
               <Text style={s.sceneSituationText}>📍 {card.situation}</Text>
             </View>
 
-            {card.image ? <Image source={{ uri: card.image }} style={s.sceneImage} resizeMode="cover" /> : null}
+            {!allUseDone && useTask ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={s.sceneProgress}>Phrase {sceneIdx + 1} of {card.tasks?.length || 0}</Text>
 
-            {/* Scene progress */}
-            <Text style={s.sceneProgress}>Question {Math.min(sceneIdx + 1, card.tasks?.length || 0)} of {card.tasks?.length || 0}</Text>
-
-            {!allSceneDone && sceneTask ? (
-              <>
-                <Text style={s.quizQ}>{sceneTask.question}</Text>
-                <View style={s.chipsRow}>
-                  {sceneTask.options.map((opt: string, i: number) => (
-                    <TouchableOpacity key={i} style={[s.chip, sceneAnswered && i === sceneTask.answer && s.chipCorrect, sceneAnswered && sceneAns === i && sceneAns !== sceneTask.answer && s.chipWrong]} onPress={() => { if (!sceneAnswered) { setAnswers({ ...answers, [`scene-${sceneIdx}`]: i }); if (i === sceneTask.answer) addXP(10); } }} activeOpacity={sceneAnswered ? 1 : 0.7}>
-                      <Text style={[s.chipText, sceneAnswered && i === sceneTask.answer && { color: C.green }]}>{opt}</Text>
-                    </TouchableOpacity>
-                  ))}
+                {/* The sentence with blank */}
+                <View style={s.useItCard}>
+                  <Text style={s.useItSentence}>{useTask.sentence}</Text>
+                  <Text style={s.useItMeaning}>{useTask.meaning}</Text>
                 </View>
-                {sceneAnswered && sceneCorrect && <Text style={s.correctFeedback}>✅ Correct!</Text>}
-                {sceneAnswered && !sceneCorrect && <Text style={s.wrongFeedback}>Best answer: "{sceneTask.options[sceneTask.answer]}"</Text>}
-                {sceneAnswered && sceneIdx < (card.tasks?.length || 0) - 1 && (
-                  <TouchableOpacity style={s.nextBtn} onPress={() => setSceneIdx(sceneIdx + 1)}>
-                    <Text style={s.nextBtnText}>Next question →</Text>
+
+                {/* Input */}
+                {!useChecked && (
+                  <View>
+                    <TextInput
+                      style={s.writeInput}
+                      value={useAnswer}
+                      onChangeText={(t) => setWriteAnswers({ ...writeAnswers, [`use-${sceneIdx}`]: t })}
+                      placeholder="Type the missing word..."
+                      placeholderTextColor={C.muted}
+                      autoCapitalize="none"
+                    />
+                    {useAnswer.trim().length > 0 && (
+                      <TouchableOpacity style={s.writeCheckBtn} onPress={() => {
+                        setWriteChecked({ ...writeChecked, [`use-${sceneIdx}`]: true });
+                        if (useAnswer.trim().toLowerCase() === useTask.answer.toLowerCase()) addXP(10);
+                      }}>
+                        <Text style={s.writeCheckText}>Check ✓</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Feedback */}
+                {useChecked && useCorrect && (
+                  <Text style={s.correctFeedback}>✅ "{useTask.fullSentence}"</Text>
+                )}
+                {useChecked && !useCorrect && (
+                  <View>
+                    <Text style={s.wrongFeedback}>The word is: "{useTask.answer}"</Text>
+                    <Text style={[s.correctFeedback, { marginTop: 4 }]}>→ {useTask.fullSentence}</Text>
+                  </View>
+                )}
+
+                {useChecked && (
+                  <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={() => setSceneIdx(sceneIdx + 1)}>
+                    <Text style={s.nextBtnText}>{sceneIdx < (card.tasks?.length || 0) - 1 ? "Next phrase →" : "Done! →"}</Text>
                   </TouchableOpacity>
                 )}
-              </>
+              </View>
             ) : (
               <View style={s.pronComplete}>
-                <Text style={s.pronCompleteText}>🎉 All scene questions done!</Text>
+                <Text style={s.pronCompleteText}>🎉 All phrases completed!</Text>
               </View>
             )}
           </View>
@@ -1201,7 +1231,7 @@ export default function LessonScreen() {
   };
 
   // Phase names for the navigation bar
-  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Scene", "Grammar", "Words", "Build", "Write", "Dialog", "Rate", "Done"];
+  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Use it", "Grammar", "Words", "Build", "Write", "Dialog", "Rate", "Done"];
 
   return (
     <View style={s.root}>
@@ -1380,6 +1410,9 @@ const s = StyleSheet.create({
   sceneSituation: { backgroundColor: C.goldDim, borderRadius: 12, padding: 14, marginBottom: 12 },
   sceneSituationText: { fontSize: 14, color: C.gold, lineHeight: 20 },
   sceneProgress: { fontSize: 11, fontWeight: "700", color: C.muted, marginBottom: 12 },
+  useItCard: { backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 20, marginBottom: 14 },
+  useItSentence: { fontSize: 20, fontWeight: "700", color: C.text, textAlign: "center", lineHeight: 28 },
+  useItMeaning: { fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, fontStyle: "italic" },
   sceneImage: { width: "100%", height: 160, borderRadius: 14, marginBottom: 14 },
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   chip: { backgroundColor: C.card, borderRadius: 20, borderWidth: 1.5, borderColor: C.border, paddingHorizontal: 18, paddingVertical: 12 },
