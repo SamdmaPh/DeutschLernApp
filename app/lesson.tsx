@@ -297,38 +297,38 @@ export default function LessonScreen() {
           return { speaker: speaker.trim(), text: rest.join(":").trim() };
         }).filter((l: any) => l.text);
 
-        // Parse translation lines
         const transLines = (card.translation || "").split("\n").filter(Boolean).map((line: string) => {
-          const [speaker, ...rest] = line.split(":");
+          const [, ...rest] = line.split(":");
           return rest.join(":").trim();
         });
 
-        // State: which line we're showing (use pronIdx as dialogLineIdx since it's available)
-        const dialogLineIdx = pronIdx; // reuse pronIdx for this
-        const allLinesShown = dialogLineIdx >= dialogLines.length;
-        const currentLine = dialogLines[dialogLineIdx];
-        const currentTrans = transLines[dialogLineIdx] || "";
-        const isUserLine = currentLine?.speaker === "You" || currentLine?.speaker === "Du";
-
-        const showNextLine = async () => {
-          if (!currentLine) return;
-          // Play NPC audio
-          if (!isUserLine) {
-            setAudioPlaying(true);
-            await ElevenLabs.playCharacterLine(currentLine.speaker, currentLine.text);
-            setAudioPlaying(false);
+        // Play entire dialog with ElevenLabs
+        const playFullDialog = async () => {
+          setAudioPlaying(true);
+          for (let i = 0; i < dialogLines.length; i++) {
+            const line = dialogLines[i];
+            if (line.speaker !== "You") {
+              await ElevenLabs.playCharacterLine(line.speaker, line.text);
+            }
+            await new Promise(r => setTimeout(r, 800));
           }
-          setPronIdx(dialogLineIdx + 1);
+          setAudioPlaying(false);
         };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LISTEN & SPEAK</Text>
-            <Text style={s.pronSubtitle}>Follow the conversation line by line. Listen, then speak your part!</Text>
+            <Text style={s.label}>LISTEN</Text>
+            <Text style={s.pronSubtitle}>Listen to the conversation. Just listen — you'll answer questions next!</Text>
 
-            {/* Already shown lines */}
+            {/* Big play button */}
+            <TouchableOpacity style={s.bigPlayBtn} onPress={playFullDialog} disabled={audioPlaying} activeOpacity={0.7}>
+              <Text style={s.bigPlayIcon}>{audioPlaying ? "🔊" : "▶"}</Text>
+              <Text style={s.bigPlayText}>{audioPlaying ? "Playing..." : "Play conversation"}</Text>
+            </TouchableOpacity>
+
+            {/* Dialog as chat bubbles (always visible) */}
             <View style={s.dialogBox}>
-              {dialogLines.slice(0, dialogLineIdx).map((line: any, i: number) => (
+              {dialogLines.map((line: any, i: number) => (
                 <View key={i} style={line.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
                   <Text style={s.bubbleSpeaker}>{line.speaker}</Text>
                   <Text style={[s.bubbleText, line.speaker === "You" && { color: "#fff" }]}>{line.text}</Text>
@@ -336,42 +336,6 @@ export default function LessonScreen() {
                 </View>
               ))}
             </View>
-
-            {/* Current line to play/speak */}
-            {!allLinesShown && currentLine && (
-              <View style={s.listenCurrentLine}>
-                {isUserLine ? (
-                  <>
-                    <Text style={s.listenYourTurn}>🎤 YOUR TURN — say this out loud:</Text>
-                    <View style={s.listenLineCard}>
-                      <Text style={s.listenLineGerman}>{currentLine.text}</Text>
-                      <Text style={s.listenLineEnglish}>{currentTrans}</Text>
-                    </View>
-                    <TouchableOpacity style={s.pronSkipBtn} onPress={() => { showNextLine(); addXP(5); }} activeOpacity={0.7}>
-                      <Text style={s.pronSkipText}>I said it! ✓ +5 XP</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={s.listenNpcTurn}>🔊 {currentLine.speaker} speaks:</Text>
-                    <TouchableOpacity style={s.listenPlayLine} onPress={showNextLine} disabled={audioPlaying} activeOpacity={0.7}>
-                      <Text style={s.listenPlayIcon}>{audioPlaying ? "⏳" : "▶"}</Text>
-                      <View>
-                        <Text style={s.listenPlayGerman}>{currentLine.text}</Text>
-                        <Text style={s.listenPlayEnglish}>{currentTrans}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            )}
-
-            {/* All lines done */}
-            {allLinesShown && (
-              <View style={s.pronComplete}>
-                <Text style={s.pronCompleteText}>🎉 Conversation complete!</Text>
-              </View>
-            )}
 
             {/* Key words */}
             {card.highlights && (
@@ -1345,7 +1309,12 @@ const s = StyleSheet.create({
   npcPlayBtn: { backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16, alignItems: "center", marginTop: 8 },
   npcPlayText: { fontSize: 14, fontWeight: "700", color: C.gold },
 
-  // Listen interactive
+  // Listen - big play
+  bigPlayBtn: { backgroundColor: C.gold, borderRadius: 18, paddingVertical: 20, alignItems: "center", marginBottom: 16 },
+  bigPlayIcon: { fontSize: 28, color: "#fff" },
+  bigPlayText: { fontSize: 16, fontWeight: "700", color: "#fff", marginTop: 4 },
+
+  // Listen interactive (kept for future use)
   listenCurrentLine: { marginTop: 12 },
   listenYourTurn: { fontSize: 13, fontWeight: "700", color: C.gold, marginBottom: 8 },
   listenNpcTurn: { fontSize: 13, fontWeight: "700", color: C.purple, marginBottom: 8 },
