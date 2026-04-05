@@ -61,6 +61,14 @@ export default function LessonScreen() {
   const [pronUserInput, setPronUserInput] = useState("");
   const [pronChecked, setPronChecked] = useState(false);
   const [pronResult, setPronResult] = useState<"correct" | "close" | "wrong" | null>(null);
+  const [pronFeedback, setPronFeedback] = useState("");
+  const [pronFeedbackLoading, setPronFeedbackLoading] = useState(false);
+  // Dialog state (live conversation)
+  const [dlgPhase, setDlgPhase] = useState<"intro" | "npc" | "hint" | "feedback" | "done">("intro");
+  const [dlgInput, setDlgInput] = useState("");
+  const [dlgPlaying, setDlgPlaying] = useState(false);
+  const [dlgFeedback, setDlgFeedback] = useState("");
+  const [dlgFeedbackLoading, setDlgFeedbackLoading] = useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
 
   const lesson = ALL_STATIC_LESSONS.find((l) => l.id === lessonId) as any;
@@ -181,27 +189,26 @@ export default function LessonScreen() {
     });
   }
 
-  // 10. INTERACTIVE DIALOG (like a game — multiple choice responses)
+  // 10. INTERACTIVE DIALOG (natural AI conversation like live-lesson)
   const dialogSteps = lesson.listening?.transcript?.split("\n").filter(Boolean) || [];
+  const translationLines = lesson.listening?.english_translation?.split("\n").filter(Boolean) || [];
   const character = dialogSteps[0]?.split(":")[0]?.trim() || "Partner";
-  const interactiveDialog: any[] = [];
+  const liveDialogSteps: any[] = [];
   for (let i = 0; i < dialogSteps.length; i++) {
     const line = dialogSteps[i];
     const [speaker, ...rest] = line.split(":");
     const text = rest.join(":").trim();
+    const transLine = translationLines[i] || "";
+    const [, ...transRest] = transLine.split(":");
+    const translation = transRest.join(":").trim() || transLine;
     if (speaker.trim() === "You" && text) {
-      // User line — create choice
-      const wrongOptions = lesson.vocabulary?.phrases?.slice(0, 2).map((p: string) => p.split("::")[0].trim()) || ["Tschüss!", "Nein!"];
-      const options = [text, ...wrongOptions.filter((w: string) => w !== text)].slice(0, 3).sort(() => Math.random() - 0.5);
-      const correctIdx = options.indexOf(text);
-      interactiveDialog.push({ type: "choice", text, options, answer: correctIdx >= 0 ? correctIdx : 0 });
+      liveDialogSteps.push({ type: "user", text, translation, hint: translation || "Respond in German!" });
     } else if (text) {
-      // NPC line
-      interactiveDialog.push({ type: "npc", speaker: speaker.trim(), text });
+      liveDialogSteps.push({ type: "npc", speaker: speaker.trim(), text, translation });
     }
   }
-  if (interactiveDialog.length > 0) {
-    cards.push({ type: "dialog", character, steps: interactiveDialog, situation: lesson.description });
+  if (liveDialogSteps.length > 0) {
+    cards.push({ type: "dialog", character, steps: liveDialogSteps, situation: lesson.description });
   }
 
   // 11. SELF-RATE
@@ -220,6 +227,13 @@ export default function LessonScreen() {
       setWordOrder([]);
       setWordOrderChecked(false);
       setShowNav(false);
+      // Reset dialog state for fresh conversation
+      setDialogStep(0);
+      setDialogHistory([]);
+      setDialogAnswered(false);
+      setDlgPhase("intro");
+      setDlgInput("");
+      setDlgFeedback("");
       scrollRef.current?.scrollTo({ y: 0, animated: false });
     }
   };
@@ -490,26 +504,50 @@ export default function LessonScreen() {
           setPronChecked(false);
           setPronResult(null);
           setPronUserInput("");
+          setPronFeedback("");
           if (pronIdx < (card.words?.length || 0) - 1) {
             setPronIdx(pronIdx + 1);
           }
         };
 
-        const checkPronunciation = (input: string) => {
+        const checkPronunciation = async (input: string) => {
           if (!currentWord) return;
           const expected = currentWord.de.toLowerCase().replace(/[!?.,"]/g, "").trim();
           const user = input.toLowerCase().replace(/[!?.,"]/g, "").trim();
           setPronChecked(true);
+          setPronFeedback("");
+
+          // Quick string check first
           if (user === expected) {
             setPronResult("correct");
+            setPronFeedback("Perfekt! Your pronunciation was spot on.");
           } else if (expected.includes(user) || user.includes(expected) || levenshtein(user, expected) <= 2) {
             setPronResult("close");
+            // Get AI feedback for "close" attempts
+            setPronFeedbackLoading(true);
+            try {
+              const res = await AI.chat(
+                [{ role: "user", content: `I tried to say "${currentWord.de}" (meaning: ${currentWord.en}) but the speech recognition heard "${input}". Compare these two and give me specific, short pronunciation feedback in 1-2 sentences. What sounds did I get wrong? How should I move my mouth differently? Be encouraging. Answer in English.` }],
+                "pronunciation correction", "A1"
+              );
+              setPronFeedback(res.text);
+            } catch { setPronFeedback(`Almost! The correct word is "${currentWord.de}". Try listening again.`); }
+            setPronFeedbackLoading(false);
           } else {
             setPronResult("wrong");
+            // Get AI feedback for wrong attempts
+            setPronFeedbackLoading(true);
+            try {
+              const res = await AI.chat(
+                [{ role: "user", content: `I tried to say "${currentWord.de}" (meaning: ${currentWord.en}) but the speech recognition heard "${input}". This was quite different from the expected word. Give me specific, short pronunciation tips in 1-2 sentences. What German sounds are tricky here? How should I pronounce it? Be encouraging. Answer in English.` }],
+                "pronunciation correction", "A1"
+              );
+              setPronFeedback(res.text);
+            } catch { setPronFeedback(`The word is "${currentWord.de}". Listen to it again and try once more!`); }
+            setPronFeedbackLoading(false);
           }
         };
 
-        // Simple Levenshtein distance
         function levenshtein(a: string, b: string): number {
           const m = a.length, n = b.length;
           const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0));
@@ -589,18 +627,32 @@ export default function LessonScreen() {
                 {/* Feedback */}
                 {pronChecked && pronResult === "correct" && (
                   <View style={[s.rateFeedback, { marginTop: 12 }]}>
-                    <Text style={s.rateFeedbackText}>✅ Perfect! That's exactly right! +5 XP</Text>
+                    <Text style={s.rateFeedbackText}>✅ Perfect! +5 XP</Text>
+                    {pronFeedback ? <Text style={[s.rateFeedbackText, { marginTop: 6, fontWeight: "400" }]}>{pronFeedback}</Text> : null}
                   </View>
                 )}
                 {pronChecked && pronResult === "close" && (
                   <View style={[s.rateAction, { marginTop: 12 }]}>
-                    <Text style={s.rateActionText}>🤏 Almost! The correct spelling is: "{currentWord.de}" — Try listening again!</Text>
+                    <Text style={s.rateActionText}>🤏 Almost! You said: "{pronUserInput}"</Text>
+                    <Text style={[s.rateActionText, { marginTop: 4, fontWeight: "400" }]}>Expected: "{currentWord.de}"</Text>
+                    {pronFeedbackLoading && <Text style={{ color: C.muted, marginTop: 8, fontSize: 13 }}>🤖 Analyzing your pronunciation...</Text>}
+                    {pronFeedback ? <Text style={{ color: C.gold, marginTop: 8, fontSize: 14, lineHeight: 20 }}>{pronFeedback}</Text> : null}
+                    <TouchableOpacity style={[s.pronListenBtn, { marginTop: 10 }]} onPress={() => playWord(currentWord.de)} disabled={pronPlaying}>
+                      <Text style={s.pronListenIcon}>🔊</Text>
+                      <Text style={s.pronListenText}>Listen again</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
                 {pronChecked && pronResult === "wrong" && (
                   <View style={[s.mistakesBox, { marginTop: 12, padding: 14 }]}>
-                    <Text style={{ color: C.red, fontWeight: "700" }}>Not quite. The word is: "{currentWord.de}"</Text>
-                    <Text style={{ color: C.muted, marginTop: 4, fontSize: 13 }}>Tap 🔊 Listen again to hear it, then try the next word.</Text>
+                    <Text style={{ color: C.red, fontWeight: "700" }}>You said: "{pronUserInput}"</Text>
+                    <Text style={{ color: C.green, fontWeight: "700", marginTop: 4 }}>Expected: "{currentWord.de}"</Text>
+                    {pronFeedbackLoading && <Text style={{ color: C.muted, marginTop: 8, fontSize: 13 }}>🤖 Analyzing your pronunciation...</Text>}
+                    {pronFeedback ? <Text style={{ color: C.text, marginTop: 8, fontSize: 14, lineHeight: 20 }}>{pronFeedback}</Text> : null}
+                    <TouchableOpacity style={[s.pronListenBtn, { marginTop: 10 }]} onPress={() => playWord(currentWord.de)} disabled={pronPlaying}>
+                      <Text style={s.pronListenIcon}>🔊</Text>
+                      <Text style={s.pronListenText}>Listen again</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -1031,23 +1083,99 @@ export default function LessonScreen() {
         );
       }
 
-      // ── 10. AI CONVERSATION ──
-      // ── 10. INTERACTIVE DIALOG (game-like) ──
+      // ── 10. LIVE AI CONVERSATION ──
       case "dialog": {
+        const currentDlgStep = card.steps?.[dialogStep];
+        const dlgDone = dialogStep >= (card.steps?.length || 0);
+        const charName = card.character || "Partner";
 
+        const playNpcAndAdvance = async () => {
+          if (!currentDlgStep || currentDlgStep.type !== "npc") return;
+          setDlgPlaying(true);
+          setDialogHistory(h => [...h, { speaker: currentDlgStep.speaker, text: currentDlgStep.text }]);
+          await ElevenLabs.playCharacterLine(currentDlgStep.speaker, currentDlgStep.text);
+          setDlgPlaying(false);
+          // Check if next step is user — go to hint
+          const nextIdx = dialogStep + 1;
+          const nextStep = card.steps?.[nextIdx];
+          setDialogStep(nextIdx);
+          if (nextStep?.type === "user") {
+            setDlgPhase("hint");
+          } else if (nextIdx >= (card.steps?.length || 0)) {
+            setDlgPhase("done");
+          } else {
+            setDlgPhase("npc");
+          }
+          scrollRef.current?.scrollToEnd?.({ animated: true });
+        };
 
+        const handleDlgRespond = async () => {
+          if (!currentDlgStep) return;
+          const response = dlgInput.trim() || currentDlgStep.text;
+          setDialogHistory(h => [...h, { speaker: "You", text: response }]);
+          setDlgInput("");
+          addXP(10);
 
-        const currentDialogStep = card.steps?.[dialogStep];
-        const dialogDone = dialogStep >= (card.steps?.length || 0);
+          // Get AI feedback on user's response
+          const expected = currentDlgStep.text;
+          if (response.toLowerCase().replace(/[!?.,"]/g, "") !== expected.toLowerCase().replace(/[!?.,"]/g, "")) {
+            setDlgFeedbackLoading(true);
+            try {
+              const res = await AI.chat(
+                [{ role: "user", content: `In a German conversation (A1 level), the expected response was "${expected}" (meaning: "${currentDlgStep.translation}"). The student said "${response}". Give brief feedback in 1 sentence: was it correct/acceptable? If not, what should they say instead? Be encouraging. Answer in English.` }],
+                "conversation feedback", "A1"
+              );
+              setDlgFeedback(res.text);
+            } catch { setDlgFeedback(""); }
+            setDlgFeedbackLoading(false);
+          } else {
+            setDlgFeedback("Perfect response!");
+          }
+          setDlgPhase("feedback");
+          scrollRef.current?.scrollToEnd?.({ animated: true });
+        };
 
-        // Process NPC lines via button tap (no useEffect in switch)
+        const advanceAfterFeedback = () => {
+          setDlgFeedback("");
+          const nextIdx = dialogStep + 1;
+          const nextStep = card.steps?.[nextIdx];
+          if (nextIdx >= (card.steps?.length || 0)) {
+            setDlgPhase("done");
+          } else {
+            setDialogStep(nextIdx);
+            if (nextStep?.type === "npc") {
+              setDlgPhase("npc");
+            } else {
+              setDlgPhase("hint");
+            }
+          }
+        };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>YOUR TURN TO SPEAK!</Text>
+            <Text style={s.label}>LIVE CONVERSATION</Text>
             <Text style={s.dialogSituation}>📍 {card.situation}</Text>
 
-            {/* Dialog history */}
+            {/* Intro */}
+            {dlgPhase === "intro" && dialogHistory.length === 0 && (
+              <View style={{ alignItems: "center", marginTop: 12 }}>
+                <Text style={{ fontSize: 48, marginBottom: 12 }}>🎭</Text>
+                <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, textAlign: "center" }}>Talk to {charName}</Text>
+                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>They'll speak German. You'll get hints to help you respond. Listen, understand, and speak!</Text>
+                <TouchableOpacity style={[s.nextBtn, { marginTop: 20, paddingHorizontal: 40 }]} onPress={() => {
+                  // Start with first step
+                  if (currentDlgStep?.type === "npc") {
+                    setDlgPhase("npc");
+                  } else {
+                    setDlgPhase("hint");
+                  }
+                }} activeOpacity={0.85}>
+                  <Text style={s.nextBtnText}>Start Conversation 🎤</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Chat history */}
             {dialogHistory.map((msg, i) => (
               <View key={i} style={msg.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
                 <Text style={s.bubbleSpeaker}>{msg.speaker}</Text>
@@ -1055,41 +1183,82 @@ export default function LessonScreen() {
               </View>
             ))}
 
-            {/* Choice for user */}
-            {!dialogDone && currentDialogStep?.type === "choice" && !dialogAnswered && (
-              <View style={s.dialogChoiceBox}>
-                <Text style={s.dialogChoiceTitle}>💬 What do you say?</Text>
-                {currentDialogStep.options.map((opt: string, i: number) => (
-                  <TouchableOpacity key={i} style={s.dialogChoice} onPress={() => {
-                    setDialogHistory(h => [...h, { speaker: "You", text: opt }]);
-                    setDialogAnswered(true);
-                    if (i === currentDialogStep.answer) addXP(10);
-                    setTimeout(() => {
-                      setDialogStep(dialogStep + 1);
-                      setDialogAnswered(false);
-                    }, 1500);
-                  }} activeOpacity={0.7}>
-                    <Text style={s.dialogChoiceText}>{opt}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            {/* NPC speaking indicator */}
+            {dlgPlaying && <Text style={{ color: C.purple, fontWeight: "700", fontSize: 13, marginTop: 8 }}>🔊 {charName} is speaking...</Text>}
 
-            {/* NPC line — tap to hear and advance */}
-            {!dialogDone && currentDialogStep?.type === "npc" && (
-              <TouchableOpacity style={s.npcPlayBtn} onPress={async () => {
-                setDialogHistory(h => [...h, { speaker: currentDialogStep.speaker, text: currentDialogStep.text }]);
-                await ElevenLabs.playCharacterLine(currentDialogStep.speaker, currentDialogStep.text);
-                setDialogStep(dialogStep + 1);
-              }} activeOpacity={0.7}>
-                <Text style={s.npcPlayText}>🔊 Hear {currentDialogStep.speaker} speak → tap here</Text>
+            {/* NPC line — tap to hear */}
+            {!dlgDone && dlgPhase === "npc" && currentDlgStep?.type === "npc" && !dlgPlaying && (
+              <TouchableOpacity style={s.npcPlayBtn} onPress={playNpcAndAdvance} activeOpacity={0.7}>
+                <Text style={s.npcPlayText}>🔊 Hear {currentDlgStep.speaker} speak</Text>
               </TouchableOpacity>
             )}
 
-            {/* Dialog complete */}
-            {dialogDone && (
-              <View style={s.pronComplete}>
-                <Text style={s.pronCompleteText}>🎉 Conversation complete!</Text>
+            {/* User hint + input */}
+            {!dlgDone && dlgPhase === "hint" && currentDlgStep?.type === "user" && (
+              <View style={{ marginTop: 12 }}>
+                <View style={{ backgroundColor: C.blueDim, borderRadius: 14, padding: 16, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 12, fontWeight: "800", color: C.blue, letterSpacing: 1, marginBottom: 4 }}>💡 HINT</Text>
+                  <Text style={{ fontSize: 14, color: C.blue, lineHeight: 20 }}>{currentDlgStep.hint || currentDlgStep.translation}</Text>
+                </View>
+
+                {/* Suggestion */}
+                <View style={{ backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 14, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 1.5, marginBottom: 6 }}>YOU COULD SAY:</Text>
+                  <TouchableOpacity onPress={() => setDlgInput(currentDlgStep.text)} activeOpacity={0.7}>
+                    <Text style={{ fontSize: 17, fontWeight: "700", color: C.text }}>{currentDlgStep.text}</Text>
+                    <Text style={{ fontSize: 13, color: C.muted, marginTop: 4, fontStyle: "italic" }}>{currentDlgStep.translation}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Input row */}
+                <View style={s.chatInputRow}>
+                  <TextInput
+                    style={s.chatInput}
+                    value={dlgInput}
+                    onChangeText={setDlgInput}
+                    placeholder="Type in German or tap suggestion..."
+                    placeholderTextColor={C.muted}
+                    onSubmitEditing={handleDlgRespond}
+                    returnKeyType="send"
+                  />
+                  {/* Mic button */}
+                  <TouchableOpacity style={s.micBtn} onPress={async () => {
+                    setDlgPlaying(true);
+                    const result = await ElevenLabs.speechToText();
+                    setDlgPlaying(false);
+                    if (result) {
+                      setDlgInput(result);
+                    }
+                  }} disabled={dlgPlaying} activeOpacity={0.7}>
+                    <Text style={s.micBtnText}>{dlgPlaying ? "⏳" : "🎤"}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={s.sendBtn} onPress={handleDlgRespond} activeOpacity={0.7}>
+                    <Text style={s.sendBtnText}>→</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Feedback */}
+            {!dlgDone && dlgPhase === "feedback" && (
+              <View style={{ marginTop: 12 }}>
+                <View style={[s.rateFeedback, { marginBottom: 12 }]}>
+                  <Text style={s.rateFeedbackText}>✅ +10 XP</Text>
+                  {dlgFeedbackLoading && <Text style={{ color: C.muted, marginTop: 6, fontSize: 13 }}>🤖 Checking your response...</Text>}
+                  {dlgFeedback ? <Text style={[s.rateFeedbackText, { marginTop: 6, fontWeight: "400" }]}>{dlgFeedback}</Text> : null}
+                </View>
+                <TouchableOpacity style={s.nextBtn} onPress={advanceAfterFeedback} activeOpacity={0.85}>
+                  <Text style={s.nextBtnText}>Continue →</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Done */}
+            {(dlgDone || dlgPhase === "done") && (
+              <View style={[s.pronComplete, { marginTop: 12 }]}>
+                <Text style={{ fontSize: 40, marginBottom: 8 }}>🎉</Text>
+                <Text style={s.pronCompleteText}>Conversation complete!</Text>
+                <Text style={{ fontSize: 13, color: C.green, marginTop: 4 }}>You talked to {charName} in German!</Text>
               </View>
             )}
           </View>
@@ -1234,7 +1403,7 @@ export default function LessonScreen() {
   };
 
   // Phase names for the navigation bar
-  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Use it", "Grammar", "Words", "Build", "Write", "Dialog", "Rate", "Done"];
+  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Use it", "Grammar", "Words", "Build", "Write", "Speak!", "Rate", "Done"];
 
   return (
     <View style={s.root}>
