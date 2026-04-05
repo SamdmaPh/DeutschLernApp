@@ -89,7 +89,9 @@ export const LESSON_DATA_A1 = [
       { type: "production", difficulty: 3, instruction: "Fill in the missing word. Just type the ONE word that goes in the blank.", tasks: [
         { prompt: "Say 'Good day': Guten _____", expected: "Tag" },
         { prompt: "Say 'please': _____", expected: "Bitte" },
-        { prompt: "Say 'thank you': _____", expected: "Danke" }
+        { prompt: "Say 'thank you': _____", expected: "Danke" },
+        { prompt: "Say 'welcome': _____", expected: "Willkommen" },
+        { prompt: "Say 'yes': _____", expected: "Ja" }
       ]}
     ],
     culture_note: "In Germany, you greet strangers with 'Guten Tag' (Good day) — it's the safe, polite option. Among friends, 'Hallo' is fine. Taxi drivers in Berlin are often chatty and love it when tourists try German. Tipping: just round up (€12.50 → €13).",

@@ -288,82 +288,86 @@ export default function LessonScreen() {
 
       // ── 2. LISTEN ──
       case "listen": {
-        // Build word lookup from highlights
-        const wordLookup: Record<string, string> = {};
-        card.highlights?.forEach((h: string) => {
-          const [de, en] = h.split("::").map((s: string) => s.trim());
-          if (de && en) wordLookup[de.toLowerCase()] = en;
+        // Parse dialog lines
+        const dialogLines = card.transcript.split("\n").filter(Boolean).map((line: string) => {
+          const [speaker, ...rest] = line.split(":");
+          return { speaker: speaker.trim(), text: rest.join(":").trim() };
+        }).filter((l: any) => l.text);
+
+        // Parse translation lines
+        const transLines = (card.translation || "").split("\n").filter(Boolean).map((line: string) => {
+          const [speaker, ...rest] = line.split(":");
+          return rest.join(":").trim();
         });
 
-        const playDialog = async () => {
-          setAudioPlaying(true);
-          // Play each line with the correct character voice
-          const lines = card.transcript.split("\n").filter(Boolean);
-          for (const line of lines) {
-            const [speaker, ...rest] = line.split(":");
-            const text = rest.join(":").trim();
-            if (text && speaker.trim() !== "You") {
-              await ElevenLabs.playCharacterLine(speaker.trim(), text);
-              // Small pause between lines
-              await new Promise(r => setTimeout(r, 500));
-            }
+        // State: which line we're showing (use pronIdx as dialogLineIdx since it's available)
+        const dialogLineIdx = pronIdx; // reuse pronIdx for this
+        const allLinesShown = dialogLineIdx >= dialogLines.length;
+        const currentLine = dialogLines[dialogLineIdx];
+        const currentTrans = transLines[dialogLineIdx] || "";
+        const isUserLine = currentLine?.speaker === "You" || currentLine?.speaker === "Du";
+
+        const showNextLine = async () => {
+          if (!currentLine) return;
+          // Play NPC audio
+          if (!isUserLine) {
+            setAudioPlaying(true);
+            await ElevenLabs.playCharacterLine(currentLine.speaker, currentLine.text);
+            setAudioPlaying(false);
           }
-          setAudioPlaying(false);
+          setPronIdx(dialogLineIdx + 1);
         };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LISTEN & READ</Text>
+            <Text style={s.label}>LISTEN & SPEAK</Text>
+            <Text style={s.pronSubtitle}>Follow the conversation line by line. Listen, then speak your part!</Text>
 
-            {/* Audio play button */}
-            <TouchableOpacity style={s.audioPlayBtn} onPress={playDialog} disabled={audioPlaying} activeOpacity={0.7}>
-              <Text style={s.audioPlayIcon}>{audioPlaying ? "⏳" : "▶"}</Text>
-              <Text style={s.audioPlayText}>{audioPlaying ? "Playing..." : "Listen to the dialogue"}</Text>
-            </TouchableOpacity>
-
-            {/* Tap hint */}
-            <Text style={s.tapWordHint}>💡 Tap any German word to see its meaning</Text>
-
-            {/* Dialog bubbles with tappable words */}
+            {/* Already shown lines */}
             <View style={s.dialogBox}>
-              {card.transcript.split("\n").map((line: string, i: number) => {
-                const [speaker, ...rest] = line.split(":");
-                const text = rest.join(":").trim();
-                const isUser = speaker.trim() === "Du" || speaker.trim() === "You";
-                if (!text) return null;
-
-                // Split text into tappable words
-                const words = text.split(/(\s+)/).filter(Boolean);
-
-                return (
-                  <View key={i} style={isUser ? s.bubbleRight : s.bubbleLeft}>
-                    <Text style={s.bubbleSpeaker}>{speaker.trim()}</Text>
-                    <Text style={s.bubbleText}>
-                      {words.map((word: string, j: number) => {
-                        const clean = word.replace(/[.,!?]/g, "").toLowerCase();
-                        const meaning = wordLookup[clean];
-                        if (meaning && word.trim()) {
-                          return (
-                            <Text key={j} style={s.tappableWord} onPress={() => setTappedWord({ word: word.trim(), meaning })}>
-                              {word}
-                            </Text>
-                          );
-                        }
-                        return <Text key={j}>{word}</Text>;
-                      })}
-                    </Text>
-                  </View>
-                );
-              })}
+              {dialogLines.slice(0, dialogLineIdx).map((line: any, i: number) => (
+                <View key={i} style={line.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
+                  <Text style={s.bubbleSpeaker}>{line.speaker}</Text>
+                  <Text style={[s.bubbleText, line.speaker === "You" && { color: "#fff" }]}>{line.text}</Text>
+                  <Text style={[s.bubbleTranslation, line.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{transLines[i] || ""}</Text>
+                </View>
+              ))}
             </View>
 
-            {/* Word translation popup */}
-            {tappedWord && (
-              <TouchableOpacity style={s.wordPopup} onPress={() => setTappedWord(null)} activeOpacity={0.9}>
-                <Text style={s.wordPopupDe}>{tappedWord.word}</Text>
-                <Text style={s.wordPopupEn}>= {tappedWord.meaning}</Text>
-                <Text style={s.wordPopupClose}>tap to close</Text>
-              </TouchableOpacity>
+            {/* Current line to play/speak */}
+            {!allLinesShown && currentLine && (
+              <View style={s.listenCurrentLine}>
+                {isUserLine ? (
+                  <>
+                    <Text style={s.listenYourTurn}>🎤 YOUR TURN — say this out loud:</Text>
+                    <View style={s.listenLineCard}>
+                      <Text style={s.listenLineGerman}>{currentLine.text}</Text>
+                      <Text style={s.listenLineEnglish}>{currentTrans}</Text>
+                    </View>
+                    <TouchableOpacity style={s.pronSkipBtn} onPress={() => { showNextLine(); addXP(5); }} activeOpacity={0.7}>
+                      <Text style={s.pronSkipText}>I said it! ✓ +5 XP</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={s.listenNpcTurn}>🔊 {currentLine.speaker} speaks:</Text>
+                    <TouchableOpacity style={s.listenPlayLine} onPress={showNextLine} disabled={audioPlaying} activeOpacity={0.7}>
+                      <Text style={s.listenPlayIcon}>{audioPlaying ? "⏳" : "▶"}</Text>
+                      <View>
+                        <Text style={s.listenPlayGerman}>{currentLine.text}</Text>
+                        <Text style={s.listenPlayEnglish}>{currentTrans}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+
+            {/* All lines done */}
+            {allLinesShown && (
+              <View style={s.pronComplete}>
+                <Text style={s.pronCompleteText}>🎉 Conversation complete!</Text>
+              </View>
             )}
 
             {/* Key words */}
@@ -759,7 +763,32 @@ export default function LessonScreen() {
                 })}
               </>
             )}
-            {allFlipped && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>All learned! Continue →</Text></TouchableOpacity>}
+            {/* Active recall after flipping */}
+            {allFlipped && (
+              <View style={{ marginTop: 20 }}>
+                <Text style={s.label}>QUICK TEST — Type the German word!</Text>
+                {card.words.slice(0, 3).map((w: string, i: number) => {
+                  const [de, en] = (w.includes("::") ? w.split("::") : [w, ""]).map((s: string) => s.trim());
+                  const wKey = `vocab-write-${i}`;
+                  const userAns = writeAnswers[wKey] || "";
+                  const checked = writeChecked[wKey];
+                  const correct = checked && userAns.trim().toLowerCase() === de.toLowerCase();
+                  return (
+                    <View key={i} style={{ marginBottom: 12 }}>
+                      <Text style={s.writePrompt}>"{en}" in German:</Text>
+                      <TextInput style={[s.writeInput, checked && correct && s.writeInputCorrect, checked && !correct && s.writeInputWrong]} value={userAns} onChangeText={(t) => setWriteAnswers({ ...writeAnswers, [wKey]: t })} placeholder="Type..." placeholderTextColor={C.muted} editable={!checked} />
+                      {!checked && userAns.trim().length > 0 && (
+                        <TouchableOpacity style={s.writeCheckBtn} onPress={() => { setWriteChecked({ ...writeChecked, [wKey]: true }); if (userAns.trim().toLowerCase() === de.toLowerCase()) addXP(5); }}>
+                          <Text style={s.writeCheckText}>Check ✓</Text>
+                        </TouchableOpacity>
+                      )}
+                      {checked && correct && <Text style={s.correctFeedback}>✅ {de}</Text>}
+                      {checked && !correct && <Text style={s.wrongFeedback}>→ {de}</Text>}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
           </View>
         );
       }
@@ -1234,6 +1263,18 @@ const s = StyleSheet.create({
   dialogChoiceText: { fontSize: 16, fontWeight: "600", color: C.text },
   npcPlayBtn: { backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16, alignItems: "center", marginTop: 8 },
   npcPlayText: { fontSize: 14, fontWeight: "700", color: C.gold },
+
+  // Listen interactive
+  listenCurrentLine: { marginTop: 12 },
+  listenYourTurn: { fontSize: 13, fontWeight: "700", color: C.gold, marginBottom: 8 },
+  listenNpcTurn: { fontSize: 13, fontWeight: "700", color: C.purple, marginBottom: 8 },
+  listenLineCard: { backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 18, marginBottom: 12 },
+  listenLineGerman: { fontSize: 20, fontWeight: "700", color: C.text },
+  listenLineEnglish: { fontSize: 14, color: C.muted, marginTop: 6, fontStyle: "italic" },
+  listenPlayLine: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 12 },
+  listenPlayIcon: { fontSize: 24, color: C.gold },
+  listenPlayGerman: { fontSize: 18, fontWeight: "700", color: C.text },
+  listenPlayEnglish: { fontSize: 13, color: C.muted, marginTop: 4, fontStyle: "italic" },
 
   // Audio
   audioPlayBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.goldLine, padding: 16, marginBottom: 10 },
