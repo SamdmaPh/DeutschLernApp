@@ -58,6 +58,9 @@ export default function LessonScreen() {
   const [dialogStep, setDialogStep] = useState(0);
   const [dialogHistory, setDialogHistory] = useState<{speaker: string; text: string}[]>([]);
   const [dialogAnswered, setDialogAnswered] = useState(false);
+  const [pronUserInput, setPronUserInput] = useState("");
+  const [pronChecked, setPronChecked] = useState(false);
+  const [pronResult, setPronResult] = useState<"correct" | "close" | "wrong" | null>(null);
   const scrollRef = React.useRef<ScrollView>(null);
 
   const lesson = ALL_STATIC_LESSONS.find((l) => l.id === lessonId) as any;
@@ -507,7 +510,6 @@ export default function LessonScreen() {
       case "pronunciation": {
         const currentWord = card.words?.[pronIdx];
         const allPronDone = pronDone.length === (card.words?.length || 0);
-
         const playWord = async (text: string) => {
           setPronPlaying(true);
           await ElevenLabs.playText(text);
@@ -519,15 +521,41 @@ export default function LessonScreen() {
             setPronDone([...pronDone, pronIdx]);
             addXP(5);
           }
+          setPronChecked(false);
+          setPronResult(null);
+          setPronUserInput("");
           if (pronIdx < (card.words?.length || 0) - 1) {
             setPronIdx(pronIdx + 1);
           }
         };
 
+        const checkPronunciation = (input: string) => {
+          if (!currentWord) return;
+          const expected = currentWord.de.toLowerCase().replace(/[!?.,"]/g, "").trim();
+          const user = input.toLowerCase().replace(/[!?.,"]/g, "").trim();
+          setPronChecked(true);
+          if (user === expected) {
+            setPronResult("correct");
+          } else if (expected.includes(user) || user.includes(expected) || levenshtein(user, expected) <= 2) {
+            setPronResult("close");
+          } else {
+            setPronResult("wrong");
+          }
+        };
+
+        // Simple Levenshtein distance
+        function levenshtein(a: string, b: string): number {
+          const m = a.length, n = b.length;
+          const dp = Array.from({ length: m + 1 }, (_, i) => Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0));
+          for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+            dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+          return dp[m][n];
+        }
+
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LISTEN & REPEAT</Text>
-            <Text style={s.pronSubtitle}>Listen to each phrase, then say it out loud.</Text>
+            <Text style={s.label}>PRONUNCIATION PRACTICE</Text>
+            <Text style={s.pronSubtitle}>Listen, repeat out loud, then check yourself!</Text>
 
             {/* Progress dots */}
             <View style={s.pronDots}>
@@ -537,27 +565,70 @@ export default function LessonScreen() {
             </View>
 
             {/* Current word */}
-            {currentWord && (
+            {currentWord && !allPronDone && (
               <View style={s.pronCard}>
                 <Text style={s.pronWord}>{currentWord.de}</Text>
                 <Text style={s.pronMeaning}>{currentWord.en}</Text>
 
-                {/* Listen button */}
+                {/* Step 1: Listen */}
                 <TouchableOpacity style={s.pronListenBtn} onPress={() => playWord(currentWord.de)} disabled={pronPlaying} activeOpacity={0.7}>
                   <Text style={s.pronListenIcon}>{pronPlaying ? "⏳" : "🔊"}</Text>
-                  <Text style={s.pronListenText}>{pronPlaying ? "Playing..." : "Listen"}</Text>
+                  <Text style={s.pronListenText}>{pronPlaying ? "Playing..." : "Step 1: Listen"}</Text>
                 </TouchableOpacity>
 
-                {/* Step 1: Listen, Step 2: Repeat, Step 3: Done */}
-                <Text style={s.pronStepHint}>
-                  {pronDone.includes(pronIdx) ? "✅ Done!" : "👆 Step 1: Tap 'Listen' above. Step 2: Say it out loud. Step 3: Tap 'I said it!'"}
-                </Text>
+                {/* Step 2: Say it */}
+                <Text style={s.pronStepHint}>Step 2: Say it out loud! Then type what you said:</Text>
 
                 <View style={s.pronActions}>
-                  <TouchableOpacity style={s.pronSkipBtn} onPress={markDone} activeOpacity={0.7}>
-                    <Text style={s.pronSkipText}>I said it! ✓ +5 XP</Text>
-                  </TouchableOpacity>
+                  <TextInput
+                    style={[s.input, { flex: 1 }, pronChecked && pronResult === "correct" && s.writeInputCorrect, pronChecked && pronResult === "wrong" && s.writeInputWrong, pronChecked && pronResult === "close" && { borderColor: C.gold, backgroundColor: C.goldDim }]}
+                    value={pronUserInput}
+                    onChangeText={setPronUserInput}
+                    placeholder="Type what you said..."
+                    placeholderTextColor={C.muted}
+                    editable={!pronChecked}
+                    autoCapitalize="none"
+                  />
                 </View>
+
+                {/* Check button */}
+                {!pronChecked && pronUserInput.trim().length > 0 && (
+                  <TouchableOpacity style={s.writeCheckBtn} onPress={() => checkPronunciation(pronUserInput)}>
+                    <Text style={s.writeCheckText}>Check my pronunciation ✓</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Skip button */}
+                {!pronChecked && (
+                  <TouchableOpacity style={{ marginTop: 8, alignItems: "center" }} onPress={markDone}>
+                    <Text style={{ fontSize: 13, color: C.muted }}>Skip → I said it correctly</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Feedback */}
+                {pronChecked && pronResult === "correct" && (
+                  <View style={[s.rateFeedback, { marginTop: 12 }]}>
+                    <Text style={s.rateFeedbackText}>✅ Perfect! That's exactly right! +5 XP</Text>
+                  </View>
+                )}
+                {pronChecked && pronResult === "close" && (
+                  <View style={[s.rateAction, { marginTop: 12 }]}>
+                    <Text style={s.rateActionText}>🤏 Almost! The correct spelling is: "{currentWord.de}" — Try listening again!</Text>
+                  </View>
+                )}
+                {pronChecked && pronResult === "wrong" && (
+                  <View style={[s.mistakesBox, { marginTop: 12, padding: 14 }]}>
+                    <Text style={{ color: C.red, fontWeight: "700" }}>Not quite. The word is: "{currentWord.de}"</Text>
+                    <Text style={{ color: C.muted, marginTop: 4, fontSize: 13 }}>Tap 🔊 Listen again to hear it, then try the next word.</Text>
+                  </View>
+                )}
+
+                {/* Next word button after check */}
+                {pronChecked && (
+                  <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={markDone}>
+                    <Text style={s.nextBtnText}>{pronIdx < (card.words?.length || 0) - 1 ? "Next word →" : "Done! →"}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
