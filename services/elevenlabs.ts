@@ -109,6 +109,65 @@ export const ElevenLabs = {
     }
   },
 
+  /**
+   * Speech-to-Text: Record audio and transcribe.
+   * Returns the transcribed text or null.
+   */
+  async speechToText(): Promise<string | null> {
+    try {
+      // Record audio
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const recording = new Audio.Recording();
+      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      await recording.startAsync();
+
+      // Record for 3 seconds
+      await new Promise(r => setTimeout(r, 3000));
+      await recording.stopAndUnloadAsync();
+
+      const uri = recording.getURI();
+      if (!uri) return null;
+
+      // Read file as base64
+      const base64Audio = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Send to ElevenLabs Speech-to-Text
+      const formData = new FormData();
+      formData.append("file", {
+        uri,
+        type: "audio/m4a",
+        name: "recording.m4a",
+      } as any);
+      formData.append("model_id", "scribe_v1");
+      formData.append("language_code", "deu");
+
+      const res = await fetch(`${BASE}/speech-to-text`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": API_KEY,
+        },
+        body: formData,
+      });
+
+      if (!res.ok) {
+        console.log("STT error:", res.status);
+        return null;
+      }
+
+      const data = await res.json();
+      return data.text || null;
+    } catch (e) {
+      console.log("Speech-to-text error:", e);
+      return null;
+    }
+  },
+
   async playCharacterLine(speaker: string, text: string): Promise<void> {
     const voiceId = CHARACTER_VOICES[speaker] || CHARACTER_VOICES.default;
     await this.playText(text, voiceId);

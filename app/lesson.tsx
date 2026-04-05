@@ -576,33 +576,48 @@ export default function LessonScreen() {
                   <Text style={s.pronListenText}>{pronPlaying ? "Playing..." : "Step 1: Listen"}</Text>
                 </TouchableOpacity>
 
-                {/* Step 2: Say it */}
-                <Text style={s.pronStepHint}>Step 2: Say it out loud! Then type what you said:</Text>
-
-                <View style={s.pronActions}>
-                  <TextInput
-                    style={[s.input, { flex: 1 }, pronChecked && pronResult === "correct" && s.writeInputCorrect, pronChecked && pronResult === "wrong" && s.writeInputWrong, pronChecked && pronResult === "close" && { borderColor: C.gold, backgroundColor: C.goldDim }]}
-                    value={pronUserInput}
-                    onChangeText={setPronUserInput}
-                    placeholder="Type what you said..."
-                    placeholderTextColor={C.muted}
-                    editable={!pronChecked}
-                    autoCapitalize="none"
-                  />
-                </View>
-
-                {/* Check button */}
-                {!pronChecked && pronUserInput.trim().length > 0 && (
-                  <TouchableOpacity style={s.writeCheckBtn} onPress={() => checkPronunciation(pronUserInput)}>
-                    <Text style={s.writeCheckText}>Check my pronunciation ✓</Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* Skip button */}
+                {/* Step 2: Speak or Type */}
                 {!pronChecked && (
-                  <TouchableOpacity style={{ marginTop: 8, alignItems: "center" }} onPress={markDone}>
-                    <Text style={{ fontSize: 13, color: C.muted }}>Skip → I said it correctly</Text>
-                  </TouchableOpacity>
+                  <View>
+                    <Text style={s.pronStepHint}>Step 2: Tap the microphone and say it!</Text>
+
+                    {/* Big mic button */}
+                    <TouchableOpacity style={s.bigMicBtn} onPress={async () => {
+                      setPronPlaying(true);
+                      const result = await ElevenLabs.speechToText();
+                      setPronPlaying(false);
+                      if (result) {
+                        setPronUserInput(result);
+                        checkPronunciation(result);
+                      }
+                    }} disabled={pronPlaying} activeOpacity={0.7}>
+                      <Text style={s.bigMicIcon}>{pronPlaying ? "⏳ Listening..." : "🎤"}</Text>
+                      <Text style={s.bigMicText}>{pronPlaying ? "Speak now!" : "Tap to speak"}</Text>
+                    </TouchableOpacity>
+
+                    {/* Or type fallback */}
+                    <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginVertical: 8 }}>— or type it —</Text>
+                    <View style={s.pronActions}>
+                      <TextInput
+                        style={[s.input, { flex: 1 }]}
+                        value={pronUserInput}
+                        onChangeText={setPronUserInput}
+                        placeholder="Type what you said..."
+                        placeholderTextColor={C.muted}
+                        autoCapitalize="none"
+                      />
+                      {pronUserInput.trim().length > 0 && (
+                        <TouchableOpacity style={s.sendBtn} onPress={() => checkPronunciation(pronUserInput)}>
+                          <Text style={s.sendText}>✓</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Skip */}
+                    <TouchableOpacity style={{ marginTop: 10, alignItems: "center" }} onPress={markDone}>
+                      <Text style={{ fontSize: 13, color: C.muted }}>Skip this word →</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
 
                 {/* Feedback */}
@@ -1467,6 +1482,9 @@ const s = StyleSheet.create({
   pronListenIcon: { fontSize: 20 },
   pronListenText: { fontSize: 15, fontWeight: "700", color: C.gold },
   pronStepHint: { fontSize: 13, color: C.muted, textAlign: "center", marginTop: 12, lineHeight: 20 },
+  bigMicBtn: { backgroundColor: C.gold, borderRadius: 20, paddingVertical: 24, alignItems: "center", marginTop: 12 },
+  bigMicIcon: { fontSize: 32, color: "#fff" },
+  bigMicText: { fontSize: 16, fontWeight: "700", color: "#fff", marginTop: 6 },
   pronActions: { flexDirection: "row", gap: 12, marginTop: 12, width: "100%" },
   pronSkipBtn: { flex: 1, backgroundColor: C.greenDim, borderRadius: 14, borderWidth: 1, borderColor: C.greenLine, paddingVertical: 14, alignItems: "center" },
   pronSkipText: { fontSize: 14, fontWeight: "700", color: C.green },
