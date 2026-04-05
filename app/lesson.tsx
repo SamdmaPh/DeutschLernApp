@@ -1253,24 +1253,22 @@ export default function LessonScreen() {
         <View style={s.xpBadge}><Text style={s.xpBadgeText}>⚡{totalXP}</Text></View>
       </View>
 
-      {/* ═══ PHASE NAV BAR: Scrollable dots ═══ */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.phaseBar}>
-        {CARD_LABELS.slice(0, total).map((emoji, i) => {
-          const isActive = i === step;
-          const isDone = i < step;
-          return (
-            <TouchableOpacity key={i} style={[s.phaseDot, isActive && s.phaseDotActive, isDone && s.phaseDotDone]} onPress={() => goToCard(i)} activeOpacity={0.7}>
-              <Text style={[s.phaseDotEmoji, isActive && { fontSize: 14 }]}>{emoji}</Text>
-              <Text style={[s.phaseDotLabel, isActive && s.phaseDotLabelActive]}>{PHASE_NAMES[i] || `${i+1}`}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* ═══ PHASE TITLE ═══ */}
-      <View style={s.phaseTitle}>
-        <Text style={s.phaseTitleText}>{CARD_LABELS[step]} {PHASE_NAMES[step] || `Card ${step + 1}`}</Text>
-        <Text style={s.phaseTitleCount}>{step + 1} of {total}</Text>
+      {/* ═══ MODERN PHASE INDICATOR ═══ */}
+      <View style={s.phaseNav}>
+        {/* Dots */}
+        <View style={s.phaseDotsRow}>
+          {CARD_LABELS.slice(0, total).map((_, i) => (
+            <TouchableOpacity key={i} onPress={() => goToCard(i)} activeOpacity={0.6}
+              style={[s.phaseNavDot, i < step && s.phaseNavDotDone, i === step && s.phaseNavDotActive]}
+            />
+          ))}
+        </View>
+        {/* Label */}
+        <View style={s.phaseNavLabel}>
+          <Text style={s.phaseNavEmoji}>{CARD_LABELS[step]}</Text>
+          <Text style={s.phaseNavText}>{PHASE_NAMES[step]}</Text>
+          <Text style={s.phaseNavCount}>{step + 1}/{total}</Text>
+        </View>
       </View>
 
       {lastXP > 0 && <XPPopup amount={lastXP} />}
@@ -1307,19 +1305,16 @@ const s = StyleSheet.create({
   topRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 8, gap: 10 },
   closeBtn: { color: C.muted, fontSize: 22, width: 28 },
 
-  // Phase navigation bar
-  phaseBar: { paddingHorizontal: 8, paddingVertical: 4, gap: 2 },
-  phaseDot: { alignItems: "center", justifyContent: "center", borderRadius: 8, width: 36, height: 32 },
-  phaseDotActive: { backgroundColor: C.goldDim, borderWidth: 1.5, borderColor: C.gold },
-  phaseDotDone: { backgroundColor: C.greenDim },
-  phaseDotEmoji: { fontSize: 11 },
-  phaseDotLabel: { fontSize: 7, fontWeight: "700", color: C.muted, marginTop: 1 },
-  phaseDotLabelActive: { color: C.gold },
-
-  // Phase title
-  phaseTitle: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
-  phaseTitleText: { fontSize: 14, fontWeight: "800", color: C.text },
-  phaseTitleCount: { fontSize: 12, fontWeight: "700", color: C.muted },
+  // Modern phase navigation
+  phaseNav: { paddingHorizontal: 20, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
+  phaseDotsRow: { flexDirection: "row", gap: 3, justifyContent: "center", marginBottom: 6 },
+  phaseNavDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.bg3 },
+  phaseNavDotDone: { backgroundColor: C.green },
+  phaseNavDotActive: { backgroundColor: C.gold, width: 20, borderRadius: 4 },
+  phaseNavLabel: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  phaseNavEmoji: { fontSize: 14 },
+  phaseNavText: { fontSize: 13, fontWeight: "700", color: C.text },
+  phaseNavCount: { fontSize: 11, fontWeight: "600", color: C.muted },
   progressTrack: { flex: 1, height: 8, backgroundColor: C.bg3, borderRadius: 4, overflow: "hidden" },
   progressFill: { height: "100%", backgroundColor: C.gold, borderRadius: 4 },
   xpBadge: { backgroundColor: C.goldDim, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
