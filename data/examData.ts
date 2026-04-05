@@ -105,9 +105,18 @@ export const EXAM_DATA: ExamLevel[] = [
             name: "Teil 3: Informationstexte",
             description: "Du liest einen längeren Text (Aushang, Programmheft) und beantwortest Fragen.",
             taskType: "Multiple Choice",
+            example: {
+              instruction: "Lies den Text und die Aufgaben. Kreuze die richtige Antwort an.",
+              content: "Volkshochschule Mitte — Programm Sommer\nDeutschkurs A1: Mo + Mi, 18:00–19:30 Uhr\nBeginn: 5. Juli | Dauer: 8 Wochen | Preis: 120 €\nAnmeldung bis 28. Juni im Büro oder online.",
+              question: "Wann beginnt der Deutschkurs?",
+              options: ["Am 28. Juni", "Am 5. Juli", "Am 5. August"],
+              answer: "Am 5. Juli",
+              explanation: "Im Text steht 'Beginn: 5. Juli'. Der 28. Juni ist der letzte Tag für die Anmeldung, nicht der Kursbeginn."
+            },
             tips: [
               "Markiere wichtige Informationen im Text",
               "Achte besonders auf Zahlen, Daten und Uhrzeiten",
+              "Unterscheide zwischen ähnlichen Informationen — z.B. Anmeldedatum vs. Startdatum",
             ]
           }
         ]
@@ -119,6 +128,14 @@ export const EXAM_DATA: ExamLevel[] = [
             name: "Teil 1: Kurze Alltagsgespräche",
             description: "Du hörst 6 kurze Gespräche (z.B. am Bahnhof, im Supermarkt) und beantwortest je eine Frage.",
             taskType: "Multiple Choice (Bild oder Text)",
+            example: {
+              instruction: "Sie hören ein Gespräch. Was ist richtig?",
+              content: "[Audio] Mann: 'Entschuldigung, wann fährt der nächste Zug nach Hamburg?' Frau: 'Um 14 Uhr 30, Gleis 7.'",
+              question: "Der Zug nach Hamburg fährt um...",
+              options: ["13:30 Uhr", "14:30 Uhr", "17:00 Uhr"],
+              answer: "14:30 Uhr",
+              explanation: "Die Frau sagt '14 Uhr 30'. Bei Höraufgaben musst du Zahlen und Uhrzeiten genau heraushören."
+            },
             tips: [
               "Lies die Frage VOR dem Hören — du weißt dann, worauf du achten musst",
               "Du hörst jeden Text ZWEIMAL — beim ersten Mal das Thema, beim zweiten Mal die Details",
@@ -129,15 +146,31 @@ export const EXAM_DATA: ExamLevel[] = [
             name: "Teil 2: Durchsagen",
             description: "Du hörst 4 Ansagen (z.B. am Bahnhof, im Radio) und ordnest Informationen zu.",
             taskType: "Richtig/Falsch",
+            example: {
+              instruction: "Sie hören eine Durchsage. Richtig oder Falsch?",
+              content: "[Audio] 'Achtung auf Gleis 3! Der ICE 578 nach Berlin fährt heute ausnahmsweise von Gleis 5. Ich wiederhole: Gleis 5.'",
+              question: "Der Zug nach Berlin fährt von Gleis 3.",
+              options: ["Richtig", "Falsch"],
+              answer: "Falsch",
+              explanation: "Die Durchsage sagt 'ausnahmsweise von Gleis 5'. Das Wort 'ausnahmsweise' zeigt eine Änderung an. Das Gleis wurde von 3 auf 5 geändert."
+            },
             tips: [
               "Durchsagen enthalten oft Änderungen: 'Achtung! Der Zug nach München fährt heute von Gleis 5'",
               "Achte auf Wörter wie: Achtung, bitte beachten Sie, leider, geändert",
+              "Die ursprüngliche Information wird oft zuerst genannt, dann die Korrektur — höre bis zum Ende",
             ]
           },
           {
             name: "Teil 3: Telefongespräche",
             description: "Du hörst 5 Nachrichten auf dem Anrufbeantworter und notierst Informationen.",
             taskType: "Information ergänzen",
+            example: {
+              instruction: "Sie hören eine Nachricht auf dem Anrufbeantworter. Ergänzen Sie die Informationen.",
+              content: "[Audio] 'Hallo Frau Müller, hier ist die Praxis Dr. Schneider. Ihr Termin am Donnerstag muss leider verschoben werden. Der neue Termin ist Freitag, 10 Uhr 15. Bitte rufen Sie zurück: 030-44 55 66 77.'",
+              question: "Neuer Termin: Tag: _____ Uhrzeit: _____ Telefonnummer: _____",
+              answer: "Freitag, 10:15 Uhr, 030-44 55 66 77",
+              explanation: "Du musst drei Details heraushören: den Tag (Freitag), die Uhrzeit (10:15) und die Telefonnummer. Schreib Zahlen sofort mit!"
+            },
             tips: [
               "Du musst oft Nummern, Uhrzeiten oder Namen notieren",
               "Schreib sofort mit, wenn du Zahlen hörst",
@@ -285,33 +318,162 @@ export const EXAM_DATA: ExamLevel[] = [
       {
         name: "Lesen", nameEn: "Reading", duration: "30 Min.", points: 25,
         parts: [
-          { name: "Teil 1: Informationstexte", description: "Informationen in kurzen Texten finden (Anzeigen, Aushänge).", taskType: "Zuordnung", tips: ["Schlüsselwörter in der Aufgabe unterstreichen", "Nicht alle Anzeigen passen — ein Distraktor ist immer dabei"] },
-          { name: "Teil 2: Zeitungsartikel", description: "Kurze Zeitungstexte lesen und Fragen beantworten.", taskType: "Multiple Choice", tips: ["Lies zuerst die Fragen, dann den Text", "Achte auf Synonyme — die Antwort benutzt oft andere Wörter als der Text"] },
-          { name: "Teil 3: Anweisungen", description: "Anweisungen und Hinweise verstehen (Hausordnung, Hinweisschilder).", taskType: "Richtig/Falsch", tips: ["Achte auf 'nicht', 'kein', 'verboten' — Negation ändert alles"] },
-          { name: "Teil 4: Leserbrief", description: "Einen kurzen Leserbrief lesen und die Meinung des Autors verstehen.", taskType: "Ja/Nein", tips: ["Achte auf Meinungswörter: 'Ich finde', 'Meiner Meinung nach', 'leider'"] },
+          {
+            name: "Teil 1: Informationstexte",
+            description: "Informationen in kurzen Texten finden (Anzeigen, Aushänge).",
+            taskType: "Zuordnung",
+            example: {
+              instruction: "Lesen Sie die Aufgaben und die Anzeigen. Welche Anzeige passt?",
+              content: "Anzeige A: 'Fahrradladen Peters — Reparatur aller Marken, Mo–Fr 9–18 Uhr, Sa 9–13 Uhr'\nAnzeige B: 'Sportstudio FitFun — Yoga, Pilates, Schwimmen. Probetraining kostenlos!'\nAnzeige C: 'Gebraucht-Fahrräder ab 80€ — gute Qualität! Tel: 0151-234567'",
+              question: "Ihr Fahrrad ist kaputt. Sie brauchen Hilfe.",
+              options: ["Anzeige A", "Anzeige B", "Anzeige C"],
+              answer: "Anzeige A",
+              explanation: "Anzeige A bietet 'Reparatur aller Marken' an. Anzeige C verkauft Fahrräder, repariert sie aber nicht. Das Schlüsselwort ist 'Reparatur'."
+            },
+            tips: [
+              "Schlüsselwörter in der Aufgabe unterstreichen",
+              "Nicht alle Anzeigen passen — ein Distraktor ist immer dabei",
+              "Lies die Aufgabe zuerst, dann suche gezielt in den Anzeigen",
+            ]
+          },
+          {
+            name: "Teil 2: Zeitungsartikel",
+            description: "Kurze Zeitungstexte lesen und Fragen beantworten.",
+            taskType: "Multiple Choice",
+            example: {
+              instruction: "Lesen Sie den Text und die Aufgaben. Kreuzen Sie die richtige Lösung an.",
+              content: "Stadtfest am Wochenende\nAm Samstag und Sonntag findet wieder das beliebte Stadtfest statt. Dieses Jahr gibt es zum ersten Mal auch ein Kinderprogramm mit Clowns und Zaubershows. Der Eintritt ist frei. Bei Regen findet das Fest in der Stadthalle statt.",
+              question: "Was ist dieses Jahr neu beim Stadtfest?",
+              options: ["Der Eintritt ist frei.", "Es gibt ein Programm für Kinder.", "Das Fest ist in der Stadthalle."],
+              answer: "Es gibt ein Programm für Kinder.",
+              explanation: "'Zum ersten Mal' bedeutet 'neu'. Das Kinderprogramm ist neu. Der freie Eintritt und die Stadthalle werden nicht als neu beschrieben."
+            },
+            tips: [
+              "Lies zuerst die Fragen, dann den Text",
+              "Achte auf Synonyme — die Antwort benutzt oft andere Wörter als der Text",
+              "Signalwörter wie 'zum ersten Mal', 'neu', 'anders als' zeigen wichtige Informationen",
+            ]
+          },
+          {
+            name: "Teil 3: Anweisungen",
+            description: "Anweisungen und Hinweise verstehen (Hausordnung, Hinweisschilder).",
+            taskType: "Richtig/Falsch",
+            example: {
+              instruction: "Lesen Sie die Hausordnung. Richtig oder Falsch?",
+              content: "Hausordnung:\n1. Ruhezeit ist von 22:00 bis 6:00 Uhr.\n2. Haustiere sind im Haus nicht erlaubt.\n3. Fahrräder bitte nur im Keller abstellen.\n4. Grillen auf dem Balkon ist verboten.",
+              question: "Man darf im Haus eine Katze haben.",
+              options: ["Richtig", "Falsch"],
+              answer: "Falsch",
+              explanation: "'Haustiere sind nicht erlaubt' bedeutet: keine Hunde, keine Katzen, keine Tiere. 'Nicht erlaubt' = 'verboten'."
+            },
+            tips: [
+              "Achte auf 'nicht', 'kein', 'verboten' — Negation ändert alles",
+              "Wörter wie 'erlaubt', 'verboten', 'nur', 'bitte' sind besonders wichtig",
+              "Lies jede Aussage einzeln und vergleiche sie genau mit dem Text",
+            ]
+          },
+          {
+            name: "Teil 4: Leserbrief",
+            description: "Einen kurzen Leserbrief lesen und die Meinung des Autors verstehen.",
+            taskType: "Ja/Nein",
+            example: {
+              instruction: "Lesen Sie den Leserbrief. Hat der Autor eine positive oder negative Meinung?",
+              content: "Leserbrief von Petra K.:\n'Ich finde es toll, dass unsere Stadt jetzt mehr Fahrradwege baut. Leider sind manche Wege aber zu schmal. Trotzdem bin ich froh, dass sich endlich etwas ändert. Ich fahre jetzt viel öfter mit dem Fahrrad zur Arbeit.'",
+              question: "Petra findet die neuen Fahrradwege gut.",
+              options: ["Ja", "Nein"],
+              answer: "Ja",
+              explanation: "Petra sagt 'toll' und 'froh'. Sie kritisiert zwar die Breite ('zu schmal'), aber insgesamt ist sie positiv ('endlich etwas ändert', 'viel öfter Fahrrad')."
+            },
+            tips: [
+              "Achte auf Meinungswörter: 'Ich finde', 'Meiner Meinung nach', 'leider'",
+              "Ein Leserbrief kann gemischte Meinungen haben — achte auf die Gesamtaussage",
+              "Wörter wie 'trotzdem', 'aber', 'obwohl' zeigen Gegensätze in der Meinung",
+            ]
+          },
         ]
       },
       {
         name: "Hören", nameEn: "Listening", duration: "30 Min.", points: 25,
         parts: [
-          { name: "Teil 1: Nachrichten", description: "Telefonische Nachrichten und Ansagen verstehen.", taskType: "Richtig/Falsch", tips: ["Zahlen und Uhrzeiten sofort notieren"] },
-          { name: "Teil 2: Gespräche", description: "Alltagsgespräche verstehen (im Geschäft, beim Arzt, am Telefon).", taskType: "Multiple Choice", tips: ["Auf die Stimmung achten — klingt die Person zufrieden oder unzufrieden?"] },
-          { name: "Teil 3: Radiosendung", description: "Einen Radiobeitrag verstehen und Fragen beantworten.", taskType: "Richtig/Falsch", tips: ["Beim ersten Hören: Hauptthema erfassen. Beim zweiten Hören: Details."] },
+          {
+            name: "Teil 1: Nachrichten",
+            description: "Telefonische Nachrichten und Ansagen verstehen.",
+            taskType: "Richtig/Falsch",
+            example: {
+              instruction: "Sie hören eine Nachricht auf dem Anrufbeantworter. Richtig oder Falsch?",
+              content: "[Audio] 'Hallo Herr Klein, hier ist Ihre Autowerkstatt. Ihr Auto ist fertig. Sie können es ab morgen, Dienstag, abholen. Wir haben bis 18 Uhr geöffnet. Die Rechnung liegt an der Kasse.'",
+              question: "Herr Klein kann sein Auto heute abholen.",
+              options: ["Richtig", "Falsch"],
+              answer: "Falsch",
+              explanation: "Die Werkstatt sagt 'ab morgen, Dienstag' — nicht heute. Das Wort 'morgen' ist entscheidend."
+            },
+            tips: [
+              "Zahlen und Uhrzeiten sofort notieren",
+              "Achte auf Zeitangaben: 'heute', 'morgen', 'nächste Woche' — sie ändern die Bedeutung",
+              "Höre genau: Oft werden Termine oder Zeiten korrigiert",
+            ]
+          },
+          {
+            name: "Teil 2: Gespräche",
+            description: "Alltagsgespräche verstehen (im Geschäft, beim Arzt, am Telefon).",
+            taskType: "Multiple Choice",
+            example: {
+              instruction: "Sie hören ein Gespräch. Was ist richtig?",
+              content: "[Audio] Frau: 'Ich hätte gerne das blaue Kleid im Schaufenster.' Verkäuferin: 'Das haben wir leider nur noch in Größe 40.' Frau: 'Oh, das ist zu groß. Haben Sie es auch in Rot?' Verkäuferin: 'Ja, in Rot haben wir alle Größen.'",
+              question: "Was macht die Kundin?",
+              options: ["Sie kauft das blaue Kleid.", "Sie fragt nach einer anderen Farbe.", "Sie geht in ein anderes Geschäft."],
+              answer: "Sie fragt nach einer anderen Farbe.",
+              explanation: "Die Kundin fragt 'Haben Sie es auch in Rot?' — sie wechselt die Farbe, weil Blau nicht in ihrer Größe da ist."
+            },
+            tips: [
+              "Auf die Stimmung achten — klingt die Person zufrieden oder unzufrieden?",
+              "Achte auf Problemlösungen: Was will die Person, und was passiert dann?",
+              "Oft ändert sich der Plan im Gespräch — das Ende ist wichtiger als der Anfang",
+            ]
+          },
+          {
+            name: "Teil 3: Radiosendung",
+            description: "Einen Radiobeitrag verstehen und Fragen beantworten.",
+            taskType: "Richtig/Falsch",
+            example: {
+              instruction: "Sie hören einen Radiobeitrag. Richtig oder Falsch?",
+              content: "[Audio] 'Immer mehr Deutsche arbeiten von zu Hause. Eine neue Studie zeigt: 40 Prozent der Büroangestellten arbeiten mindestens einen Tag pro Woche im Homeoffice. Die meisten finden das positiv, weil sie keine lange Fahrt zur Arbeit haben.'",
+              question: "Die meisten Leute im Homeoffice sind unzufrieden.",
+              options: ["Richtig", "Falsch"],
+              answer: "Falsch",
+              explanation: "Im Beitrag steht 'Die meisten finden das positiv'. 'Positiv' ist das Gegenteil von 'unzufrieden'. Achte auf Meinungswörter!"
+            },
+            tips: [
+              "Beim ersten Hören: Hauptthema erfassen. Beim zweiten Hören: Details.",
+              "Notiere Schlüsselwörter wie Zahlen, Prozentzahlen und Meinungen",
+              "Vorsicht mit Verallgemeinerungen: 'alle', 'niemand', 'immer' — prüfe genau",
+            ]
+          },
         ]
       },
       {
         name: "Schreiben", nameEn: "Writing", duration: "30 Min.", points: 25,
         parts: [
-          { name: "Teil 1: SMS/Kurznachricht", description: "Eine kurze Nachricht als Reaktion auf eine Situation schreiben.", taskType: "Nachricht (ca. 40 Wörter)", tips: ["Informell: 'Lieber/Liebe...', 'Hallo...', 'Viele Grüße'", "Alle 3 Inhaltspunkte beantworten"] },
-          { name: "Teil 2: Beitrag in Online-Gästebuch", description: "Deine Meinung oder Erfahrung zu einem Thema schreiben.", taskType: "Text (ca. 40 Wörter)", tips: ["Nutze Konnektoren: 'und', 'aber', 'weil', 'deshalb'", "Einfache Meinungsäußerung: 'Ich finde... gut/schlecht/interessant'"] },
+          { name: "Teil 1: SMS/Kurznachricht", description: "Eine kurze Nachricht als Reaktion auf eine Situation schreiben.", taskType: "Nachricht (ca. 40 Wörter)",
+            example: { instruction: "Schreiben Sie eine Nachricht an Ihre Freundin.", content: "Situation: Sie haben heute einen Arzttermin und können nicht zum Deutschkurs kommen.\n- Warum können Sie nicht kommen?\n- Wann kommen Sie wieder?\n- Was soll Ihre Freundin für Sie tun?", question: "Schreiben Sie ca. 40 Wörter.", answer: "Liebe Sara, ich kann heute leider nicht zum Deutschkurs kommen. Ich habe einen Termin beim Arzt. Nächste Woche bin ich wieder da. Kannst du bitte die Hausaufgaben für mich aufschreiben? Danke! Liebe Grüße", explanation: "Alle 3 Punkte beantwortet: Grund (Arzttermin), Rückkehr (nächste Woche), Bitte (Hausaufgaben). Informeller Ton mit 'Liebe' + 'Liebe Grüße'." },
+            tips: ["Informell: 'Lieber/Liebe...', 'Hallo...', 'Viele Grüße'", "Alle 3 Inhaltspunkte beantworten", "Kurze Sätze reichen — 40 Wörter sind wenig!"] },
+          { name: "Teil 2: Beitrag in Online-Gästebuch", description: "Deine Meinung oder Erfahrung zu einem Thema schreiben.", taskType: "Text (ca. 40 Wörter)",
+            example: { instruction: "Schreiben Sie einen Beitrag in ein Online-Gästebuch.", content: "Thema: Ihr Lieblingsrestaurant\n- Was gefällt Ihnen?\n- Was empfehlen Sie?", question: "Schreiben Sie ca. 40 Wörter.", answer: "Mein Lieblingsrestaurant ist das 'Goldene Lamm' in der Altstadt. Das Essen ist sehr lecker und nicht zu teuer. Ich empfehle die Schnitzel mit Kartoffelsalat — das ist fantastisch! Die Kellner sind sehr freundlich.", explanation: "Meinung + Empfehlung + persönliche Note. Konnektoren: 'und', 'nicht zu'." },
+            tips: ["Nutze Konnektoren: 'und', 'aber', 'weil', 'deshalb'", "Einfache Meinungsäußerung: 'Ich finde... gut/schlecht/interessant'", "Persönliche Erfahrung macht den Text lebendig"] },
         ]
       },
       {
         name: "Sprechen", nameEn: "Speaking", duration: "15 Min.", points: 25,
         parts: [
-          { name: "Teil 1: Über sich erzählen", description: "Ein Alltagsthema beschreiben (z.B. Wohnung, Tagesablauf).", taskType: "Monolog (ca. 1-2 Min.)", tips: ["Strukturiert erzählen: zuerst..., dann..., danach...", "Einfache Sätze sind OK — Hauptsache flüssig"] },
-          { name: "Teil 2: Gemeinsam planen", description: "Mit einem Partner etwas planen (z.B. Ausflug, Party).", taskType: "Dialog", tips: ["Vorschläge machen: 'Wollen wir...?', 'Wie wäre es mit...?'", "Reagieren: 'Gute Idee!', 'Das finde ich nicht so gut, weil...'"] },
-          { name: "Teil 3: Auf Bilder reagieren", description: "Ein Bild beschreiben und darüber sprechen.", taskType: "Monolog + Reaktion", tips: ["'Auf dem Bild sehe ich...', 'Das erinnert mich an...'", "Eigene Erfahrungen einbringen"] },
+          { name: "Teil 1: Über sich erzählen", description: "Ein Alltagsthema beschreiben (z.B. Wohnung, Tagesablauf).", taskType: "Monolog (ca. 1-2 Min.)",
+            example: { instruction: "Erzählen Sie etwas über Ihr Thema.", content: "Thema: Mein Tagesablauf", question: "Beschreiben Sie einen typischen Tag.", answer: "Ich stehe morgens um 7 Uhr auf. Dann frühstücke ich und trinke Kaffee. Um 8 Uhr fahre ich mit dem Bus zur Arbeit. Ich arbeite von 9 bis 17 Uhr. Nach der Arbeit koche ich und sehe fern. Um 23 Uhr gehe ich ins Bett.", explanation: "Chronologische Struktur: morgens → mittags → abends. Zeitangaben und einfache Verben." },
+            tips: ["Strukturiert erzählen: zuerst..., dann..., danach...", "Einfache Sätze sind OK — Hauptsache flüssig", "Zeitangaben nutzen: morgens, um 8 Uhr, nach der Arbeit"] },
+          { name: "Teil 2: Gemeinsam planen", description: "Mit einem Partner etwas planen (z.B. Ausflug, Party).", taskType: "Dialog",
+            example: { instruction: "Planen Sie gemeinsam mit Ihrem Partner.", content: "Situation: Sie möchten zusammen ein Picknick machen.\n- Wann?\n- Wo?\n- Was mitbringen?", question: "Machen Sie Vorschläge und reagieren Sie auf die Vorschläge Ihres Partners.", answer: "Wollen wir am Samstag ein Picknick machen? — Ja, gute Idee! Wie wäre es im Park? — OK, und was bringen wir mit? — Ich bringe Brötchen und Käse mit. Und du? — Ich kann Obst und Getränke mitbringen.", explanation: "Vorschlag + Reaktion + Aufgabenverteilung. Höfliche Fragen verwenden." },
+            tips: ["Vorschläge machen: 'Wollen wir...?', 'Wie wäre es mit...?'", "Reagieren: 'Gute Idee!', 'Das finde ich nicht so gut, weil...'", "Aufgaben verteilen: 'Ich bringe... mit. Und du?'"] },
+          { name: "Teil 3: Auf Bilder reagieren", description: "Ein Bild beschreiben und darüber sprechen.", taskType: "Monolog + Reaktion",
+            example: { instruction: "Beschreiben Sie das Bild und sprechen Sie darüber.", content: "[Bild: Familie beim Abendessen am Tisch]", question: "Was sehen Sie? Was denken Sie?", answer: "Auf dem Bild sehe ich eine Familie. Sie sitzen zusammen am Tisch und essen. Das erinnert mich an meine Familie. Bei uns essen wir auch zusammen — meistens am Wochenende.", explanation: "Beschreibung + persönliche Verbindung. 'Auf dem Bild sehe ich...' + 'Das erinnert mich an...'" },
+            tips: ["'Auf dem Bild sehe ich...', 'Das erinnert mich an...'", "Eigene Erfahrungen einbringen", "Nicht nur beschreiben — auch deine Meinung und Gefühle äußern"] },
         ]
       }
     ],
@@ -353,11 +515,17 @@ export const EXAM_DATA: ExamLevel[] = [
       {
         name: "Lesen", nameEn: "Reading", duration: "65 Min.", points: 100,
         parts: [
-          { name: "Teil 1: Blog/Forumsbeitrag", description: "Längere Texte lesen und die Hauptaussagen verstehen.", taskType: "Richtig/Falsch", tips: ["Auf Meinungswörter achten: 'meiner Meinung nach', 'ich finde', 'leider'"] },
-          { name: "Teil 2: Zeitungsartikel", description: "Informationen aus Zeitungsartikeln entnehmen.", taskType: "Multiple Choice", tips: ["Vorsicht mit Distraktoren — oft klingt eine falsche Antwort sehr plausibel"] },
-          { name: "Teil 3: Anzeigen/Situationen", description: "Anzeigen konkreten Situationen zuordnen.", taskType: "Zuordnung", tips: ["Systematisch: Jede Anzeige durchgehen und auf Schlüsselwörter prüfen"] },
-          { name: "Teil 4: Leserbrief", description: "Die Meinung des Autors in einem Leserbrief verstehen.", taskType: "Ja/Nein/nicht im Text", tips: ["'Nicht im Text' = Die Information wird überhaupt nicht erwähnt, weder ja noch nein"] },
-          { name: "Teil 5: Gebrauchsanweisung", description: "Anweisungen in Hausordnungen, Gebrauchsanleitungen etc. verstehen.", taskType: "Multiple Choice", tips: ["Achte auf Modalverben: 'muss', 'darf nicht', 'soll'"] },
+          { name: "Teil 1: Blog/Forumsbeitrag", description: "Längere Texte lesen und die Hauptaussagen verstehen.", taskType: "Richtig/Falsch",
+            example: { instruction: "Lesen Sie den Blog-Beitrag. Richtig oder Falsch?", content: "Seit ich in Berlin lebe, fahre ich jeden Tag mit dem Fahrrad zur Arbeit. Am Anfang fand ich es anstrengend, aber inzwischen möchte ich nicht mehr ohne mein Fahrrad leben. Man ist schneller als mit der U-Bahn und spart auch noch Geld.", question: "Die Autorin fährt Fahrrad, weil es billiger als die U-Bahn ist.", options: ["Richtig", "Falsch"], answer: "Richtig", explanation: "'Spart auch noch Geld' = es ist billiger. Aber der HAUPTGRUND ist, dass sie es inzwischen liebt." },
+            tips: ["Auf Meinungswörter achten: 'meiner Meinung nach', 'ich finde', 'leider'", "Unterscheide zwischen Hauptaussage und Details", "Markiere Schlüsselwörter im Text"] },
+          { name: "Teil 2: Zeitungsartikel", description: "Informationen aus Zeitungsartikeln entnehmen.", taskType: "Multiple Choice",
+            example: { instruction: "Lesen Sie den Artikel und wählen Sie die richtige Antwort.", content: "Die Zahl der Studierenden an deutschen Universitäten ist im vergangenen Jahr um 3% gestiegen. Besonders beliebt waren Informatik und Medizin. Viele ausländische Studierende kommen nach Deutschland, weil die Studiengebühren niedrig sind.", question: "Warum studieren viele Ausländer in Deutschland?", options: ["Weil die Qualität der Unis am besten ist.", "Weil das Studium relativ günstig ist.", "Weil man in Deutschland gut arbeiten kann."], answer: "Weil das Studium relativ günstig ist.", explanation: "'Niedrige Studiengebühren' = relativ günstig/billig. Die anderen Optionen werden im Text nicht als Grund genannt." },
+            tips: ["Vorsicht mit Distraktoren — oft klingt eine falsche Antwort sehr plausibel", "Suche die Textstelle, die zur Frage passt", "Achte auf Synonyme: 'niedrig' = 'günstig' = 'billig'"] },
+          { name: "Teil 3: Anzeigen/Situationen", description: "Anzeigen konkreten Situationen zuordnen.", taskType: "Zuordnung", tips: ["Systematisch: Jede Anzeige durchgehen und auf Schlüsselwörter prüfen", "Eine Anzeige bleibt immer übrig (Distraktor)", "Mehrere Schlüsselwörter müssen passen, nicht nur eins"] },
+          { name: "Teil 4: Leserbrief", description: "Die Meinung des Autors in einem Leserbrief verstehen.", taskType: "Ja/Nein/nicht im Text",
+            example: { instruction: "Lesen Sie den Leserbrief. Ja, Nein, oder nicht im Text?", content: "Ich finde es gut, dass unsere Stadt jetzt mehr Fahrradwege baut. Das macht das Radfahren sicherer. Allerdings sollte man auch an die Fußgänger denken — manchmal fahren Radfahrer viel zu schnell auf dem Gehweg.", question: "Der Autor ist gegen den Bau von Fahrradwegen.", options: ["Ja", "Nein", "Nicht im Text"], answer: "Nein", explanation: "Er findet es 'gut' = er ist dafür, nicht dagegen. Er kritisiert nur das Verhalten mancher Radfahrer." },
+            tips: ["'Nicht im Text' = Die Information wird überhaupt nicht erwähnt, weder ja noch nein", "Unterscheide: Kritik an einem Detail ≠ gegen das Thema insgesamt", "'Ja/Nein' nur wenn der Text die Information klar enthält"] },
+          { name: "Teil 5: Gebrauchsanweisung", description: "Anweisungen in Hausordnungen, Gebrauchsanleitungen etc. verstehen.", taskType: "Multiple Choice", tips: ["Achte auf Modalverben: 'muss', 'darf nicht', 'soll'", "Verbote erkennen: 'ist nicht gestattet', 'ist untersagt', 'bitte vermeiden'", "Zeitangaben beachten: 'ab 22 Uhr', 'werktags', 'an Feiertagen'"] },
         ]
       },
       {
@@ -372,17 +540,24 @@ export const EXAM_DATA: ExamLevel[] = [
       {
         name: "Schreiben", nameEn: "Writing", duration: "60 Min.", points: 100,
         parts: [
-          { name: "Aufgabe 1: Formeller Brief", description: "Einen formellen Brief/E-Mail schreiben (Beschwerde, Anfrage, Bewerbung).", taskType: "Brief (ca. 80 Wörter)", tips: [
+          { name: "Aufgabe 1: Formeller Brief", description: "Einen formellen Brief/E-Mail schreiben (Beschwerde, Anfrage, Bewerbung).", taskType: "Brief (ca. 80 Wörter)",
+            example: { instruction: "Schreiben Sie eine formelle E-Mail.", content: "Situation: Sie haben online einen Laptop bestellt. Nach 3 Wochen ist er noch nicht da.\n- Grund für Ihr Schreiben\n- Was ist passiert?\n- Was möchten Sie?", question: "Schreiben Sie ca. 80 Wörter.", answer: "Sehr geehrte Damen und Herren,\n\nich habe am 15. März einen Laptop in Ihrem Online-Shop bestellt (Bestellnummer 12345). Leider habe ich die Lieferung nach drei Wochen immer noch nicht erhalten.\n\nIch bitte Sie, mir mitzuteilen, wann ich mit der Lieferung rechnen kann. Falls der Artikel nicht mehr verfügbar ist, möchte ich mein Geld zurückbekommen.\n\nMit freundlichen Grüßen\nAnna Schmidt", explanation: "Formeller Stil, alle 3 Punkte beantwortet, Konnektoren (leider, falls), konkrete Details (Datum, Bestellnummer)." },
+            tips: [
             "Formeller Stil: 'Sehr geehrte Damen und Herren,' ... 'Mit freundlichen Grüßen'",
             "Alle Inhaltspunkte bearbeiten",
             "Konnektoren verwenden: 'außerdem', 'deshalb', 'trotzdem'",
+            "Konkrete Details nennen: Datum, Bestellnummer, Ort",
           ] },
-          { name: "Aufgabe 2: Diskussionsbeitrag", description: "Deine Meinung zu einem Thema schreiben.", taskType: "Forumsbeitrag (ca. 80 Wörter)", tips: [
+          { name: "Aufgabe 2: Diskussionsbeitrag", description: "Deine Meinung zu einem Thema schreiben.", taskType: "Forumsbeitrag (ca. 80 Wörter)",
+            example: { instruction: "Schreiben Sie Ihre Meinung im Forum.", content: "Thema: 'Sollen Handys in der Schule verboten werden?'", question: "Schreiben Sie Ihre Meinung (ca. 80 Wörter).", answer: "Ich bin der Meinung, dass Handys in der Schule nicht komplett verboten werden sollten. Einerseits können Handys im Unterricht stören, andererseits kann man sie auch zum Lernen benutzen, zum Beispiel für Recherche. In meinem Heimatland dürfen Schüler ihre Handys in der Pause benutzen — das finde ich sinnvoll. Deshalb denke ich, dass eine Regelung besser ist als ein Verbot.", explanation: "Struktur: Meinung → Argument → Gegenargument → Beispiel → Schluss. Konnektoren: einerseits/andererseits, deshalb." },
+            tips: [
             "Struktur: Meinung + Begründung + Beispiel",
             "'Ich bin der Meinung, dass...', 'Einerseits... andererseits...'",
             "Pro- und Contra-Argumente zeigen → höhere Punktzahl",
           ] },
-          { name: "Aufgabe 3: Informelle E-Mail", description: "Auf eine E-Mail eines Freundes antworten.", taskType: "E-Mail (ca. 40 Wörter)", tips: [
+          { name: "Aufgabe 3: Informelle E-Mail", description: "Auf eine E-Mail eines Freundes antworten.", taskType: "E-Mail (ca. 40 Wörter)",
+            example: { instruction: "Antworten Sie auf die E-Mail Ihres Freundes.", content: "Tom schreibt: 'Hi! Ich komme nächste Woche nach Berlin! Hast du Zeit? Was können wir machen?'", question: "Antworten Sie (ca. 40 Wörter).", answer: "Hi Tom! Super, dass du kommst! Ich habe am Samstag frei. Wir können in die Altstadt gehen und abends zusammen essen. Ich kenne ein tolles Restaurant! Freu mich! LG", explanation: "Informell, antwortet auf beide Fragen (Zeit? Was machen?), persönlich und enthusiastisch." },
+            tips: [
             "Informeller Ton: 'Liebe/r...', 'Viele Grüße'",
             "Auf alle Punkte der ursprünglichen E-Mail eingehen",
           ] },

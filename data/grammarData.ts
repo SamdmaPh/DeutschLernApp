@@ -46,7 +46,7 @@ export interface GrammarSection {
   topics: GrammarTopic[];
 }
 
-export const GRAMMAR_DATA: GrammarSection[] = [
+const GRAMMAR_DATA_BASE: GrammarSection[] = [
   // ══════════════════════════════════════════════════════════════
   // VERBEN
   // ══════════════════════════════════════════════════════════════
@@ -1076,6 +1076,29 @@ export const GRAMMAR_DATA: GrammarSection[] = [
     ]
   },
 ];
+
+// ─── Importiere zusätzliche Grammatik-Themen ────────────────────────────────
+import { GRAMMAR_EXTRA } from "./grammarExtra";
+
+// Merge: Extra-Themen in bestehende Sektionen einfügen oder neue Sektionen hinzufügen
+const mergeGrammar = (): GrammarSection[] => {
+  const merged = [...GRAMMAR_DATA_BASE];
+  for (const extra of GRAMMAR_EXTRA) {
+    // Prüfe ob Sektion mit ähnlichem Thema existiert (verben, satzbau, etc.)
+    const baseId = extra.id.replace("_extra", "");
+    const existing = merged.find(s => s.id === baseId);
+    if (existing) {
+      // Topics in bestehende Sektion einfügen
+      existing.topics.push(...extra.topics);
+    } else {
+      // Neue Sektion hinzufügen
+      merged.push(extra);
+    }
+  }
+  return merged;
+};
+
+export const GRAMMAR_DATA: GrammarSection[] = mergeGrammar();
 
 // Hilfsfunktionen
 export const getGrammarSection = (id: string) => GRAMMAR_DATA.find(s => s.id === id);
