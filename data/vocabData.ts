@@ -35,9 +35,16 @@ export const VOCAB_CATEGORIES = [
   { id: "verbs", name: "Wichtige Verben", emoji: "🔤" },
   { id: "adjectives", name: "Adjektive", emoji: "🎨" },
   { id: "phrases", name: "Redewendungen", emoji: "💬" },
+  { id: "clothes", name: "Kleidung", emoji: "👗" },
+  { id: "technology", name: "Technologie", emoji: "💻" },
+  { id: "colors", name: "Farben", emoji: "🌈" },
+  { id: "politics", name: "Politik & Gesellschaft", emoji: "🏛️" },
+  { id: "media", name: "Medien", emoji: "📰" },
+  { id: "environment", name: "Umwelt", emoji: "🌍" },
+  { id: "idioms", name: "Sprichwörter & Redewendungen", emoji: "🗣️" },
 ];
 
-export const VOCAB_DATA: VocabEntry[] = [
+const VOCAB_DATA_BASE: VocabEntry[] = [
   // ══════════════════════════════════════════════════════════════
   // BEGRÜSSUNG & ABSCHIED
   // ══════════════════════════════════════════════════════════════
@@ -1118,6 +1125,29 @@ export const VOCAB_DATA: VocabEntry[] = [
     example: "Endlich Feierabend! Lass uns ein Bier trinken.", exampleEn: "Finally done with work! Let's have a beer.",
     level: "A2", category: "work", tags: ["Wort des Tages", "Kultur"]
   },
+];
+
+// ─── Importiere erweiterten Wortschatz aus Teildateien ──────────────────────
+import { VOCAB_A1_A2 } from "./vocabA1A2";
+import { VOCAB_B1_B2 } from "./vocabB1B2";
+import { VOCAB_C1_C2, REDEWENDUNGEN } from "./vocabC1C2";
+
+// Deduplizierung: Neue Einträge nur hinzufügen wenn das Wort noch nicht existiert
+const existingWords = new Set(VOCAB_DATA_BASE.map(v => v.word.toLowerCase()));
+const addUnique = (entries: VocabEntry[]) =>
+  entries.filter(e => {
+    const key = e.word.toLowerCase();
+    if (existingWords.has(key)) return false;
+    existingWords.add(key);
+    return true;
+  });
+
+export const VOCAB_DATA: VocabEntry[] = [
+  ...VOCAB_DATA_BASE,
+  ...addUnique(VOCAB_A1_A2),
+  ...addUnique(VOCAB_B1_B2),
+  ...addUnique(VOCAB_C1_C2),
+  ...addUnique(REDEWENDUNGEN),
 ];
 
 // Hilfsfunktion: Alle Wörter eines Levels
