@@ -9,7 +9,7 @@ import { SITUATION_IMAGES } from "../data/images";
 import { Progress } from "../services/progress";
 import { AI, ChatMessage } from "../services/ai";
 import { TTS } from "../services/tts";
-import { ElevenLabs, CHARACTER_VOICES } from "../services/elevenlabs";
+import { ElevenLabs, CHARACTER_VOICES, VOICES } from "../services/elevenlabs";
 import { SRS } from "../services/srs";
 import { C, SAFE_TOP, SERIF } from "../theme";
 
@@ -301,23 +301,26 @@ export default function LessonScreen() {
           return rest.join(":").trim();
         });
 
-        // Play entire dialog with ElevenLabs
+        // Play entire dialog with 2 voices via ElevenLabs
         const playFullDialog = async () => {
           setAudioPlaying(true);
           for (let i = 0; i < dialogLines.length; i++) {
             const line = dialogLines[i];
-            if (line.speaker !== "You") {
+            // Use different voice for "You" (female) vs NPC (male/character)
+            if (line.speaker === "You") {
+              await ElevenLabs.playText(line.text, VOICES.female);
+            } else {
               await ElevenLabs.playCharacterLine(line.speaker, line.text);
             }
-            await new Promise(r => setTimeout(r, 800));
+            await new Promise(r => setTimeout(r, 600));
           }
           setAudioPlaying(false);
         };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LISTEN</Text>
-            <Text style={s.pronSubtitle}>Listen to the conversation. Just listen — you'll answer questions next!</Text>
+            <Text style={s.label}>LISTENING</Text>
+            <Text style={s.pronSubtitle}>Listen to the full conversation with 2 speakers. Follow along with the text. You'll answer questions in the next step!</Text>
 
             {/* Big play button */}
             <TouchableOpacity style={s.bigPlayBtn} onPress={playFullDialog} disabled={audioPlaying} activeOpacity={0.7}>
