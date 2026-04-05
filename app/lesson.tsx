@@ -133,10 +133,10 @@ export default function LessonScreen() {
 
   // 7. GRAMMAR + mini quiz (use recall tasks that have options)
   if (lesson.grammar) {
-    // Find a quiz that actually relates to grammar (from recall exercises)
-    const grammarQuiz = lesson.exercises?.[1]?.tasks?.find((t: any) => t.options && t.question?.includes("___"));
-    const fallbackQuiz = lesson.exercises?.[1]?.tasks?.find((t: any) => t.options);
-    const quiz = grammarQuiz || fallbackQuiz;
+    // ALL recall tasks as grammar quizzes
+    const grammarQuizzes = (lesson.exercises?.[1]?.tasks || []).filter((t: any) => t.options).map((t: any) => ({
+      question: t.question, options: t.options, answer: t.answer ?? t.correct ?? 0,
+    }));
     cards.push({
       type: "grammar",
       concept: lesson.grammar.concept,
@@ -144,7 +144,7 @@ export default function LessonScreen() {
       patterns: lesson.grammar.patterns,
       commonMistakes: lesson.grammar.common_mistakes,
       mnemonic: lesson.grammar.mnemonic,
-      quiz: quiz ? { question: quiz.question, options: quiz.options, answer: quiz.answer ?? quiz.correct ?? 0 } : null,
+      quizzes: grammarQuizzes,
     });
   }
 
@@ -544,26 +544,14 @@ export default function LessonScreen() {
                   <Text style={s.pronListenText}>{pronPlaying ? "Playing..." : "Listen"}</Text>
                 </TouchableOpacity>
 
-                {/* Record / I said it button */}
-                <View style={s.pronActions}>
-                  <TouchableOpacity style={s.pronMicBtn} onPress={() => {
-                    if (typeof window !== "undefined" && (window as any).webkitSpeechRecognition) {
-                      const SR = (window as any).webkitSpeechRecognition;
-                      const recognition = new SR();
-                      recognition.lang = "de-DE";
-                      recognition.onresult = () => markDone();
-                      recognition.onerror = () => markDone();
-                      recognition.start();
-                    } else {
-                      markDone();
-                    }
-                  }} activeOpacity={0.7}>
-                    <Text style={s.pronMicIcon}>🎤</Text>
-                    <Text style={s.pronMicText}>Say it</Text>
-                  </TouchableOpacity>
+                {/* Step 1: Listen, Step 2: Repeat, Step 3: Done */}
+                <Text style={s.pronStepHint}>
+                  {pronDone.includes(pronIdx) ? "✅ Done!" : "👆 Step 1: Tap 'Listen' above. Step 2: Say it out loud. Step 3: Tap 'I said it!'"}
+                </Text>
 
+                <View style={s.pronActions}>
                   <TouchableOpacity style={s.pronSkipBtn} onPress={markDone} activeOpacity={0.7}>
-                    <Text style={s.pronSkipText}>I said it ✓</Text>
+                    <Text style={s.pronSkipText}>I said it! ✓ +5 XP</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -642,7 +630,8 @@ export default function LessonScreen() {
 
       // ── 7. GRAMMAR + QUIZ ──
       case "grammar": {
-        const q = card.quiz;
+        const quizzes = card.quizzes || (card.quiz ? [card.quiz] : []);
+        const q = quizzes[0]; // for backward compat
         const ans = answers[step];
         const answered = q && ans !== undefined;
         return (
@@ -710,16 +699,27 @@ export default function LessonScreen() {
               </View>
             )}
 
-            {/* Quiz */}
-            {q && (
+            {/* Practice quizzes — ALL recall tasks */}
+            {quizzes.length > 0 && (
               <View style={{ marginTop: 20 }}>
-                <Text style={s.conjugTitle}>PRACTICE</Text>
-                <Text style={s.quizQ}>{q.question}</Text>
-                {q.options.map((opt: string, i: number) => (
-                  <TouchableOpacity key={i} style={[s.optBtn, answered && i === q.answer && s.optCorrect, answered && ans === i && ans !== q.answer && s.optWrong]} onPress={() => { if (!answered) { setAnswers({ ...answers, [step]: i }); if (i === q.answer) addXP(10); } }} activeOpacity={answered ? 1 : 0.7}>
-                    <Text style={[s.optText, answered && i === q.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
-                  </TouchableOpacity>
-                ))}
+                <Text style={s.conjugTitle}>PRACTICE ({quizzes.length} questions)</Text>
+                {quizzes.map((quiz: any, qi: number) => {
+                  const qAns = answers[`grammar-${qi}`];
+                  const qAnswered = qAns !== undefined;
+                  const qCorrect = qAns === quiz.answer;
+                  return (
+                    <View key={qi} style={{ marginBottom: 16 }}>
+                      <Text style={s.quizQ}>{quiz.question}</Text>
+                      {quiz.options.map((opt: string, i: number) => (
+                        <TouchableOpacity key={i} style={[s.optBtn, qAnswered && i === quiz.answer && s.optCorrect, qAnswered && qAns === i && qAns !== quiz.answer && s.optWrong]} onPress={() => { if (!qAnswered) { setAnswers({ ...answers, [`grammar-${qi}`]: i }); if (i === quiz.answer) addXP(10); } }} activeOpacity={qAnswered ? 1 : 0.7}>
+                          <Text style={[s.optText, qAnswered && i === quiz.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {qAnswered && qCorrect && <Text style={s.correctFeedback}>✅ Correct! +10 XP</Text>}
+                      {qAnswered && !qCorrect && <Text style={s.wrongFeedback}>Answer: {quiz.options[quiz.answer]}</Text>}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -1354,10 +1354,8 @@ const s = StyleSheet.create({
   pronListenBtn: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, paddingHorizontal: 24, paddingVertical: 14, marginTop: 20 },
   pronListenIcon: { fontSize: 20 },
   pronListenText: { fontSize: 15, fontWeight: "700", color: C.gold },
-  pronActions: { flexDirection: "row", gap: 12, marginTop: 16, width: "100%" },
-  pronMicBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: C.card, borderRadius: 14, borderWidth: 1.5, borderColor: C.border, paddingVertical: 14 },
-  pronMicIcon: { fontSize: 18 },
-  pronMicText: { fontSize: 14, fontWeight: "700", color: C.text },
+  pronStepHint: { fontSize: 13, color: C.muted, textAlign: "center", marginTop: 12, lineHeight: 20 },
+  pronActions: { flexDirection: "row", gap: 12, marginTop: 12, width: "100%" },
   pronSkipBtn: { flex: 1, backgroundColor: C.greenDim, borderRadius: 14, borderWidth: 1, borderColor: C.greenLine, paddingVertical: 14, alignItems: "center" },
   pronSkipText: { fontSize: 14, fontWeight: "700", color: C.green },
   pronTips: { backgroundColor: C.bg2, borderRadius: 14, padding: 16, marginBottom: 12 },

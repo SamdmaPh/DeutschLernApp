@@ -14,8 +14,8 @@ export const LESSON_DATA_A1 = [
     listening: {
       title: "At the taxi stand",
       difficulty: "A1.0",
-      transcript: "Taxi driver: Guten Tag! Wohin möchten Sie?\nYou: Guten Tag. Zum Hostel, bitte. Torstraße 104.\nTaxi driver: Alles klar. Willkommen in Berlin!\nYou: Danke!\nTaxi driver: Sprechen Sie Deutsch?\nYou: Ein bisschen. Ich lerne.\nTaxi driver: Sehr gut! Berlin ist toll.",
-      english_translation: "Taxi driver: Good day! Where would you like to go?\nYou: Good day. To the hostel, please. Torstraße 104.\nTaxi driver: Got it. Welcome to Berlin!\nYou: Thanks!\nTaxi driver: Do you speak German?\nYou: A little. I'm learning.\nTaxi driver: Very good! Berlin is great.",
+      transcript: "Taxi driver: Guten Tag!\nYou: Guten Tag!\nTaxi driver: Wohin?\nYou: Zum Hostel, bitte.\nTaxi driver: Willkommen in Berlin!\nYou: Danke!",
+      english_translation: "Taxi driver: Good day!\nYou: Good day!\nTaxi driver: Where to?\nYou: To the hostel, please.\nTaxi driver: Welcome to Berlin!\nYou: Thank you!",
       vocabulary_highlighted: [
         "Guten Tag :: Good day (formal greeting)",
         "bitte :: please",
