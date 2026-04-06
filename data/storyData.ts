@@ -1,24 +1,43 @@
 // ─── Story Layer: Erzählung pro Lektion ─────────────────────────────────────
 // Jede Lektion hat eine Geschichte die den Spieler durch die Phasen führt
 
+export interface QuestGoal {
+  id: string;
+  text: string;           // "Frag nach einer Fahrkarte"
+  textEn: string;         // "Ask for a ticket"
+  keywords: string[];     // Keywords die in der Antwort sein müssen
+  reward?: string;        // Item-Emoji bei Erfolg
+}
+
+export interface LessonQuest {
+  title: string;          // "Kaufe eine Fahrkarte nach Hamburg"
+  titleEn: string;        // "Buy a ticket to Hamburg"
+  description: string;    // Kurzbeschreibung
+  goals: QuestGoal[];     // Teilziele
+  successItem?: string;   // Item das man am Ende bekommt
+  successItemName?: string;
+}
+
 export interface LessonStory {
   lessonId: string;
   // Phase 1: Hook — cinematic intro
-  hookNarration: string;      // Erzähler-Text (atmosphärisch)
-  hookEmoji: string;          // Situation-Emoji
-  hookVideo?: string;         // Pexels video URL (mp4)
+  hookNarration: string;
+  hookEmoji: string;
+  hookVideo?: string;
   // Zwischentexte zwischen Phasen
-  listenIntro: string;        // Vor Phase 2
-  checkIntro: string;         // Vor Phase 3
-  practiceIntro: string;      // Vor Phase 5-6
-  speakIntro: string;         // Vor Phase 11
+  listenIntro: string;
+  checkIntro: string;
+  practiceIntro: string;
+  speakIntro: string;
   // Phase 12-13: Story-Abschluss
-  outroNarration: string;     // Was passiert nach der Lektion
+  outroNarration: string;
   outroEmoji: string;
   // NPC Character
   npcName: string;
   npcEmoji: string;
-  npcGreeting: string;        // Erster Satz des NPC
+  npcGreeting: string;
+  // Quest
+  quest?: LessonQuest;
 }
 
 export const STORY_DATA: Record<string, LessonStory> = {
@@ -36,6 +55,18 @@ export const STORY_DATA: Record<string, LessonStory> = {
     npcName: "Taxi driver",
     npcEmoji: "🚕",
     npcGreeting: "Guten Tag! Wohin?",
+    quest: {
+      title: "Finde ein Taxi zum Hostel",
+      titleEn: "Find a taxi to the hostel",
+      description: "Du musst dem Taxifahrer sagen wohin du willst.",
+      goals: [
+        { id: "greet", text: "Begrüße den Taxifahrer", textEn: "Greet the taxi driver", keywords: ["guten tag", "hallo", "hi"] },
+        { id: "destination", text: "Sag wohin du willst", textEn: "Say where you want to go", keywords: ["hostel", "hotel", "bitte", "zum"] },
+        { id: "thank", text: "Bedanke dich", textEn: "Say thank you", keywords: ["danke", "dankeschön", "danke schön"] },
+      ],
+      successItem: "🚕",
+      successItemName: "Taxifahrt nach Berlin-Mitte",
+    },
   },
   "a1-0-2": {
     lessonId: "a1-0-2",
@@ -51,6 +82,18 @@ export const STORY_DATA: Record<string, LessonStory> = {
     npcName: "Receptionist",
     npcEmoji: "👩‍💼",
     npcGreeting: "Guten Abend! Haben Sie eine Reservierung?",
+    quest: {
+      title: "Check im Hostel ein",
+      titleEn: "Check into the hostel",
+      description: "Du brauchst deinen Schlüssel und das WLAN-Passwort.",
+      goals: [
+        { id: "greet", text: "Begrüße die Rezeptionistin", textEn: "Greet the receptionist", keywords: ["guten abend", "hallo", "guten tag"] },
+        { id: "reservation", text: "Sag dass du eine Reservierung hast", textEn: "Say you have a reservation", keywords: ["reservierung", "ja", "gebucht"] },
+        { id: "wifi", text: "Frag nach dem WLAN", textEn: "Ask for the WiFi", keywords: ["wlan", "wifi", "internet", "passwort"] },
+      ],
+      successItem: "🔑",
+      successItemName: "Schlüssel Zimmer 204",
+    },
   },
   "a1-1-1": {
     lessonId: "a1-1-1",
@@ -66,6 +109,19 @@ export const STORY_DATA: Record<string, LessonStory> = {
     npcName: "Kellnerin",
     npcEmoji: "👩‍🍳",
     npcGreeting: "Guten Morgen! Was möchten Sie bestellen?",
+    quest: {
+      title: "Bestelle dein Frühstück",
+      titleEn: "Order your breakfast",
+      description: "Du sitzt im Café. Bestelle etwas zu essen und trinken.",
+      goals: [
+        { id: "greet", text: "Begrüße die Kellnerin", textEn: "Greet the waitress", keywords: ["guten morgen", "hallo", "guten tag"] },
+        { id: "drink", text: "Bestelle ein Getränk", textEn: "Order a drink", keywords: ["kaffee", "tee", "wasser", "saft", "trinken", "möchte"] },
+        { id: "food", text: "Bestelle etwas zu essen", textEn: "Order food", keywords: ["brötchen", "brot", "kuchen", "croissant", "essen", "frühstück"] },
+        { id: "pay", text: "Frag nach der Rechnung", textEn: "Ask for the bill", keywords: ["rechnung", "zahlen", "bezahlen", "bitte"] },
+      ],
+      successItem: "☕",
+      successItemName: "Berliner Frühstück",
+    },
   },
   "a1-1-2": {
     lessonId: "a1-1-2",
@@ -81,6 +137,18 @@ export const STORY_DATA: Record<string, LessonStory> = {
     npcName: "Kassiererin",
     npcEmoji: "🧑‍💼",
     npcGreeting: "Das macht 12,50 Euro. Brauchen Sie eine Tüte?",
+    quest: {
+      title: "Kaufe im Supermarkt ein",
+      titleEn: "Shop at the supermarket",
+      description: "Du brauchst Essen für die Woche. Kaufe ein und bezahle.",
+      goals: [
+        { id: "greet", text: "Begrüße die Kassiererin", textEn: "Greet the cashier", keywords: ["hallo", "guten tag"] },
+        { id: "bag", text: "Antworte auf die Tüten-Frage", textEn: "Answer about the bag", keywords: ["ja", "nein", "bitte", "tüte", "danke"] },
+        { id: "pay", text: "Bezahle", textEn: "Pay", keywords: ["karte", "bar", "euro", "bezahlen", "bitte"] },
+      ],
+      successItem: "🛍️",
+      successItemName: "Einkaufstüte mit Lebensmitteln",
+    },
   },
   "a1-1-3": {
     lessonId: "a1-1-3",
@@ -96,6 +164,18 @@ export const STORY_DATA: Record<string, LessonStory> = {
     npcName: "Schaffner",
     npcEmoji: "🧑‍✈️",
     npcGreeting: "Die Fahrkarte bitte! Wohin fahren Sie?",
+    quest: {
+      title: "Kaufe eine Fahrkarte nach Hamburg",
+      titleEn: "Buy a ticket to Hamburg",
+      description: "Du stehst am Schalter. Kaufe ein Ticket und finde dein Gleis.",
+      goals: [
+        { id: "destination", text: "Sag wohin du fahren willst", textEn: "Say where you want to go", keywords: ["hamburg", "fahrkarte", "ticket", "nach"] },
+        { id: "type", text: "Einfach oder hin und zurück?", textEn: "One way or return?", keywords: ["einfach", "hin und zurück", "zurück", "retour"] },
+        { id: "platform", text: "Frag nach dem Gleis", textEn: "Ask which platform", keywords: ["gleis", "wo", "welch", "abfahrt", "wann"] },
+      ],
+      successItem: "🎫",
+      successItemName: "Fahrkarte Berlin → Hamburg",
+    },
   },
 };
 

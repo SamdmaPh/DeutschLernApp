@@ -1186,11 +1186,26 @@ export default function LessonScreen() {
         );
       }
 
-      // ── 10. LIVE GESPRÄCH (Real AI conversation via Railway backend) ──
+      // ── 10. QUEST-GESPRÄCH (Live AI conversation with quest goals) ──
       case "dialog": {
         const charName = card.character || "Partner";
         const BACKEND = "https://deutschlernappbackend2-production.up.railway.app";
-        const dlgDone = dialogHistory.length >= 6; // 3 exchanges = done
+        const quest = story.quest;
+        const [completedGoals, setCompletedGoalsState] = [
+          dialogHistory.reduce((acc: string[], msg) => {
+            if (msg.speaker === "You" && quest) {
+              for (const goal of quest.goals) {
+                if (!acc.includes(goal.id) && goal.keywords.some(kw => msg.text.toLowerCase().includes(kw))) {
+                  acc.push(goal.id);
+                }
+              }
+            }
+            return acc;
+          }, [] as string[]),
+          () => {}, // computed, not setState
+        ];
+        const allGoalsDone = quest ? completedGoals.length >= quest.goals.length : dialogHistory.length >= 6;
+        const dlgDone = allGoalsDone;
 
         const playNpcAndAdvance = async () => {
           if (!currentDlgStep || currentDlgStep.type !== "npc") return;
@@ -1399,22 +1414,45 @@ export default function LessonScreen() {
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LIVE GESPRÄCH</Text>
-            <Text style={s.dialogSituation}>📍 {card.situation}</Text>
+            {/* Quest header */}
+            {quest && (
+              <View style={{ backgroundColor: "#1C1C2E", borderRadius: 16, padding: 18, marginBottom: 16 }}>
+                <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 6 }}>🎯 QUEST</Text>
+                <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: "#FFF" }}>{quest.title}</Text>
+                <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>{quest.titleEn}</Text>
+                <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", marginTop: 8, lineHeight: 20 }}>{quest.description}</Text>
 
-            {/* Intro */}
+                {/* Quest goals checklist */}
+                <View style={{ marginTop: 14, gap: 6 }}>
+                  {quest.goals.map((goal) => {
+                    const done = completedGoals.includes(goal.id);
+                    return (
+                      <View key={goal.id} style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                        <Text style={{ fontSize: 16 }}>{done ? "✅" : "⬜"}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, color: done ? C.green : "#FFF", fontWeight: done ? "700" : "400", textDecorationLine: done ? "line-through" : "none" }}>{goal.text}</Text>
+                          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{goal.textEn}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Intro — before conversation starts */}
             {dlgPhase === "intro" && dialogHistory.length === 0 && (
-              <View style={{ alignItems: "center", marginTop: 12 }}>
-                <Text style={{ fontSize: 48, marginBottom: 12 }}>🎭</Text>
+              <View style={{ alignItems: "center", marginTop: 8 }}>
+                <Text style={{ fontSize: 56, marginBottom: 12 }}>{story.npcEmoji}</Text>
                 <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, textAlign: "center" }}>Sprich mit {charName}</Text>
-                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>{charName} spricht Deutsch mit dir. Ein echtes Gespräch — wie im echten Leben! Drück auf den Mikrofon-Button und antworte laut.</Text>
+                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>Erfülle die Quest! Sprich Deutsch mit {charName} — wie im echten Leben. Du bekommst Tipps was du sagen kannst.</Text>
                 <TouchableOpacity style={[s.nextBtn, { marginTop: 20, paddingHorizontal: 40 }]} onPress={startLiveConversation} activeOpacity={0.85}>
-                  <Text style={s.nextBtnText}>Gespräch starten 🎤</Text>
+                  <Text style={s.nextBtnText}>Quest starten 🎤</Text>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Chat history */}
+            {/* Chat history with translations */}
             {dialogHistory.map((msg, i) => (
               <View key={i} style={msg.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
                 <Text style={s.bubbleSpeaker}>{msg.speaker === "You" ? "Du" : msg.speaker}</Text>
@@ -1426,11 +1464,11 @@ export default function LessonScreen() {
             {chatLoading && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
                 <Text style={{ fontSize: 16 }}>💬</Text>
-                <Text style={{ color: C.muted, fontSize: 13 }}>{charName} denkt nach...</Text>
+                <Text style={{ color: C.muted, fontSize: 13 }}>{charName} antwortet...</Text>
               </View>
             )}
 
-            {/* Corrections feedback */}
+            {/* Corrections */}
             {dlgFeedback && !chatLoading && (
               <View style={{ backgroundColor: C.goldDim, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.goldLine }}>
                 <Text style={{ fontSize: 11, fontWeight: "800", color: C.gold, letterSpacing: 1, marginBottom: 4 }}>KORREKTUR</Text>
@@ -1438,9 +1476,23 @@ export default function LessonScreen() {
               </View>
             )}
 
-            {/* Voice input — Big mic button */}
+            {/* Hint: what to say next (based on uncompleted goals) */}
+            {!dlgDone && dialogHistory.length > 0 && !chatLoading && quest && (() => {
+              const nextGoal = quest.goals.find(g => !completedGoals.includes(g.id));
+              if (!nextGoal) return null;
+              return (
+                <View style={{ backgroundColor: C.blueDim, borderRadius: 12, padding: 12, marginTop: 10, borderWidth: 1, borderColor: C.blueLine }}>
+                  <Text style={{ fontSize: 10, fontWeight: "800", color: C.blue, letterSpacing: 1, marginBottom: 4 }}>💡 TIPP</Text>
+                  <Text style={{ fontSize: 14, color: C.blue }}>{nextGoal.text}</Text>
+                  <Text style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{nextGoal.textEn}</Text>
+                </View>
+              );
+            })()}
+
+            {/* Voice input + text input */}
             {!dlgDone && dialogHistory.length > 0 && !chatLoading && (
               <View style={{ alignItems: "center", marginTop: 16 }}>
+                {/* Big mic button */}
                 <TouchableOpacity
                   style={{
                     backgroundColor: dlgPlaying ? C.red : C.gold,
@@ -1470,12 +1522,22 @@ export default function LessonScreen() {
               </View>
             )}
 
-            {/* Done */}
+            {/* Quest complete! */}
             {dlgDone && (
-              <View style={[s.pronComplete, { marginTop: 12 }]}>
-                <Text style={{ fontSize: 40, marginBottom: 8 }}>🎉</Text>
-                <Text style={s.pronCompleteText}>Gespräch abgeschlossen!</Text>
-                <Text style={{ fontSize: 13, color: C.green, marginTop: 4 }}>Du hast mit {charName} auf Deutsch gesprochen!</Text>
+              <View style={{ alignItems: "center", marginTop: 16 }}>
+                <Text style={{ fontSize: 48, marginBottom: 8 }}>🏆</Text>
+                <Text style={{ fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: C.text }}>Quest abgeschlossen!</Text>
+                <Text style={{ fontSize: 14, color: C.green, marginTop: 4 }}>Du hast alle Ziele erreicht!</Text>
+
+                {quest?.successItem && (
+                  <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.goldDim, borderRadius: 16, padding: 16, marginTop: 16, gap: 14, borderWidth: 1, borderColor: C.goldLine }}>
+                    <Text style={{ fontSize: 40 }}>{quest.successItem}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 1.5 }}>ITEM ERHALTEN!</Text>
+                      <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }}>{quest.successItemName}</Text>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </View>
