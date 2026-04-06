@@ -1181,24 +1181,23 @@ export default function LessonScreen() {
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LIVE CONVERSATION</Text>
+            <Text style={s.label}>LIVE GESPRÄCH</Text>
             <Text style={s.dialogSituation}>📍 {card.situation}</Text>
 
             {/* Intro */}
             {dlgPhase === "intro" && dialogHistory.length === 0 && (
               <View style={{ alignItems: "center", marginTop: 12 }}>
                 <Text style={{ fontSize: 48, marginBottom: 12 }}>🎭</Text>
-                <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, textAlign: "center" }}>Talk to {charName}</Text>
-                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>They'll speak German. You'll get hints to help you respond. Listen, understand, and speak!</Text>
+                <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, textAlign: "center" }}>Sprich mit {charName}</Text>
+                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>Du hörst was {charName} sagt. Dann sprichst DU — laut, auf Deutsch! Du bekommst Tipps was du sagen kannst.</Text>
                 <TouchableOpacity style={[s.nextBtn, { marginTop: 20, paddingHorizontal: 40 }]} onPress={() => {
-                  // Start with first step
                   if (currentDlgStep?.type === "npc") {
                     setDlgPhase("npc");
                   } else {
                     setDlgPhase("hint");
                   }
                 }} activeOpacity={0.85}>
-                  <Text style={s.nextBtnText}>Start Conversation 🎤</Text>
+                  <Text style={s.nextBtnText}>Gespräch starten 🎤</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1206,90 +1205,99 @@ export default function LessonScreen() {
             {/* Chat history */}
             {dialogHistory.map((msg, i) => (
               <View key={i} style={msg.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
-                <Text style={s.bubbleSpeaker}>{msg.speaker}</Text>
+                <Text style={s.bubbleSpeaker}>{msg.speaker === "You" ? "Du" : msg.speaker}</Text>
                 <Text style={[s.bubbleText, msg.speaker === "You" && { color: "#fff" }]}>{msg.text}</Text>
               </View>
             ))}
 
             {/* NPC speaking indicator */}
-            {dlgPlaying && <Text style={{ color: C.purple, fontWeight: "700", fontSize: 13, marginTop: 8 }}>🔊 {charName} is speaking...</Text>}
+            {dlgPlaying && <Text style={{ color: C.purple, fontWeight: "700", fontSize: 13, marginTop: 8 }}>🔊 {charName} spricht...</Text>}
 
             {/* NPC line — tap to hear */}
             {!dlgDone && dlgPhase === "npc" && currentDlgStep?.type === "npc" && !dlgPlaying && (
               <TouchableOpacity style={s.npcPlayBtn} onPress={playNpcAndAdvance} activeOpacity={0.7}>
-                <Text style={s.npcPlayText}>🔊 Hear {currentDlgStep.speaker} speak</Text>
+                <Text style={s.npcPlayText}>🔊 {currentDlgStep.speaker} hören</Text>
               </TouchableOpacity>
             )}
 
-            {/* User turn — Multiple choice + optional free input */}
+            {/* User turn — SPEAK first, with hints */}
             {!dlgDone && dlgPhase === "hint" && currentDlgStep?.type === "user" && (
               <View style={{ marginTop: 12 }}>
-                {/* What to say hint */}
-                <View style={{ backgroundColor: C.blueDim, borderRadius: 14, padding: 16, marginBottom: 12 }}>
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: C.blue, letterSpacing: 1, marginBottom: 4 }}>YOUR TURN</Text>
-                  <Text style={{ fontSize: 14, color: C.blue, lineHeight: 20 }}>{currentDlgStep.hint || currentDlgStep.translation}</Text>
+                {/* Hint: what to say */}
+                <View style={{ backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 1.5, marginBottom: 6 }}>💡 TIPP — SAG ETWAS WIE:</Text>
+                  <Text style={{ fontSize: 18, fontWeight: "700", color: C.text }}>{currentDlgStep.text}</Text>
+                  <Text style={{ fontSize: 13, color: C.muted, marginTop: 4, fontStyle: "italic" }}>{currentDlgStep.translation}</Text>
                 </View>
 
-                {/* Multiple choice options — correct answer + 2 distractors */}
-                <Text style={{ fontSize: 11, fontWeight: "700", color: C.muted, letterSpacing: 1, marginBottom: 8 }}>CHOOSE YOUR RESPONSE:</Text>
-                {(() => {
-                  const correctText = currentDlgStep.text;
-                  // Generate plausible wrong options from other dialog steps or common phrases
-                  const otherUserLines = card.steps?.filter((s: any) => s.type === "user" && s.text !== correctText).map((s: any) => s.text) || [];
-                  const fallbackOptions = ["Ich verstehe nicht.", "Nein, danke.", "Wie bitte?", "Ja, natürlich!", "Entschuldigung."];
-                  const wrongOptions = [...otherUserLines, ...fallbackOptions].filter(o => o !== correctText).slice(0, 2);
-                  const allOptions = [correctText, ...wrongOptions].sort(() => Math.random() - 0.5);
+                {/* Big microphone button — PRIMARY action */}
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: dlgPlaying ? C.red : C.gold,
+                    borderRadius: 50, width: 100, height: 100, alignSelf: "center",
+                    alignItems: "center", justifyContent: "center",
+                    marginVertical: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
+                  }}
+                  onPress={async () => {
+                    if (dlgPlaying) return;
+                    setDlgPlaying(true);
+                    const result = await ElevenLabs.speechToText();
+                    setDlgPlaying(false);
+                    if (result) {
+                      setDlgInput(result);
+                      // Auto-submit what they said
+                      const response = result.trim() || currentDlgStep.text;
+                      setDialogHistory(h => [...h, { speaker: "You", text: response }]);
+                      addXP(10);
+                      // Check if close to expected
+                      const expected = currentDlgStep.text;
+                      if (response.toLowerCase().replace(/[!?.,"]/g, "") !== expected.toLowerCase().replace(/[!?.,"]/g, "")) {
+                        setDlgFeedbackLoading(true);
+                        try {
+                          const res = await AI.chat(
+                            [{ role: "user", content: `In a German conversation (A1 level), the expected response was "${expected}" (meaning: "${currentDlgStep.translation}"). The student SPOKE and said "${response}". Give brief feedback in 1 sentence: was it correct/acceptable? If close enough, praise them! If not, show what they should say. Be encouraging. Answer in English.` }],
+                            "conversation feedback", "A1"
+                          );
+                          setDlgFeedback(res.text);
+                        } catch { setDlgFeedback(""); }
+                        setDlgFeedbackLoading(false);
+                      } else {
+                        setDlgFeedback("Perfekt! Genau richtig!");
+                      }
+                      setDlgPhase("feedback");
+                      scrollRef.current?.scrollToEnd?.({ animated: true });
+                    }
+                  }}
+                  disabled={dlgPlaying}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 40 }}>{dlgPlaying ? "⏳" : "🎤"}</Text>
+                </TouchableOpacity>
+                <Text style={{ textAlign: "center", fontSize: 14, fontWeight: "700", color: dlgPlaying ? C.red : C.gold }}>
+                  {dlgPlaying ? "Sprich jetzt!" : "Tippe & sprich laut"}
+                </Text>
 
-                  return allOptions.map((opt, i) => {
-                    const isSelected = dlgInput === opt;
-                    const isCorrect = opt === correctText;
-                    return (
-                      <TouchableOpacity
-                        key={i}
-                        style={[s.optBtn, isSelected && isCorrect && s.optCorrect, isSelected && !isCorrect && s.optWrong]}
-                        onPress={() => {
-                          if (!dialogAnswered) {
-                            setDlgInput(opt);
-                            setDialogAnswered(true);
-                            if (isCorrect) {
-                              // Auto-respond after short delay
-                              setTimeout(() => handleDlgRespond(), 800);
-                            }
-                          }
-                        }}
-                        activeOpacity={dialogAnswered ? 1 : 0.7}
-                      >
-                        <Text style={[s.optText, isSelected && isCorrect && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
-                        {isSelected && isCorrect && <Text style={{ color: C.green, fontWeight: "800" }}>✓</Text>}
-                        {isSelected && !isCorrect && <Text style={{ color: C.red, fontWeight: "800" }}>✗</Text>}
-                      </TouchableOpacity>
-                    );
-                  });
-                })()}
+                {/* Listen to example first */}
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 12, gap: 6 }}
+                  onPress={() => ElevenLabs.playText(currentDlgStep.text, VOICES.female)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 16 }}>🔊</Text>
+                  <Text style={{ fontSize: 13, color: C.muted }}>Erstmal anhören wie es klingt</Text>
+                </TouchableOpacity>
 
-                {/* Wrong answer feedback */}
-                {dialogAnswered && dlgInput !== currentDlgStep.text && (
-                  <View style={{ marginTop: 8 }}>
-                    <Text style={{ fontSize: 13, color: C.red, marginBottom: 4 }}>The correct response is:</Text>
-                    <TouchableOpacity style={[s.optBtn, { borderColor: C.green, backgroundColor: C.greenDim }]} onPress={() => { setDlgInput(currentDlgStep.text); setTimeout(() => handleDlgRespond(), 500); }}>
-                      <Text style={{ fontSize: 15, fontWeight: "700", color: C.green }}>{currentDlgStep.text}</Text>
-                      <Text style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{currentDlgStep.translation}</Text>
+                {/* Fallback: type if mic doesn't work */}
+                <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
+                  <Text style={{ fontSize: 11, color: C.muted2, textAlign: "center", marginBottom: 6 }}>Mikrofon geht nicht? Tippe es:</Text>
+                  <View style={s.chatInputRow}>
+                    <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Auf Deutsch tippen..." placeholderTextColor={C.muted} onSubmitEditing={handleDlgRespond} returnKeyType="send" />
+                    <TouchableOpacity style={s.sendBtn} onPress={handleDlgRespond} activeOpacity={0.7}>
+                      <Text style={s.sendBtnText}>→</Text>
                     </TouchableOpacity>
                   </View>
-                )}
-
-                {/* Or type freely (collapsed) */}
-                {!dialogAnswered && (
-                  <View style={{ marginTop: 12 }}>
-                    <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginBottom: 6 }}>— or type your own response —</Text>
-                    <View style={s.chatInputRow}>
-                      <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Type in German..." placeholderTextColor={C.muted} onSubmitEditing={handleDlgRespond} returnKeyType="send" />
-                      <TouchableOpacity style={s.sendBtn} onPress={handleDlgRespond} activeOpacity={0.7}>
-                        <Text style={s.sendBtnText}>→</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
+                </View>
               </View>
             )}
 
