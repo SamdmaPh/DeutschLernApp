@@ -698,7 +698,7 @@ export default function LessonScreen() {
       case "scene":
         return <View style={s.cardInner}><Text style={s.label}>SCENE</Text></View>;
 
-      // ── 6. USE IT — fill in the blank in context ──
+      // ── 6. USE IT — inline fill in the blank ──
       case "useIt": {
         const useTask = card.tasks?.[sceneIdx];
         const useChecked = writeChecked[`use-${sceneIdx}`];
@@ -706,10 +706,13 @@ export default function LessonScreen() {
         const useCorrect = useChecked && useAnswer.trim().toLowerCase() === useTask?.answer?.toLowerCase();
         const allUseDone = sceneIdx >= (card.tasks?.length || 0);
 
+        // Split sentence into parts around "_____"
+        const sentenceParts = useTask?.sentence?.split("_____") || ["", ""];
+
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>USE IT!</Text>
-            <Text style={s.pronSubtitle}>Complete the phrase. Fill in the missing word.</Text>
+            <Text style={s.label}>ERGÄNZE!</Text>
+            <Text style={s.pronSubtitle}>Schreibe das fehlende Wort direkt in die Lücke.</Text>
 
             <View style={s.sceneSituation}>
               <Text style={s.sceneSituationText}>📍 {card.situation}</Text>
@@ -717,50 +720,61 @@ export default function LessonScreen() {
 
             {!allUseDone && useTask ? (
               <View style={{ marginTop: 12 }}>
-                <Text style={s.sceneProgress}>Phrase {sceneIdx + 1} of {card.tasks?.length || 0}</Text>
+                <Text style={s.sceneProgress}>Satz {sceneIdx + 1} von {card.tasks?.length || 0}</Text>
 
-                {/* The sentence with blank */}
+                {/* Sentence with INLINE input where the blank is */}
                 <View style={s.useItCard}>
-                  <Text style={s.useItSentence}>{useTask.sentence}</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
+                    <Text style={[s.useItSentence, { flexShrink: 1 }]}>{sentenceParts[0]}</Text>
+                    {!useChecked ? (
+                      <TextInput
+                        style={{
+                          borderBottomWidth: 2, borderBottomColor: C.gold,
+                          fontSize: 18, fontWeight: "700", color: C.gold,
+                          minWidth: 80, maxWidth: 160, paddingVertical: 4, paddingHorizontal: 6,
+                          textAlign: "center", marginHorizontal: 4,
+                        }}
+                        value={useAnswer}
+                        onChangeText={(t) => setWriteAnswers({ ...writeAnswers, [`use-${sceneIdx}`]: t })}
+                        placeholder="..."
+                        placeholderTextColor={C.muted2}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    ) : (
+                      <Text style={[s.useItSentence, { color: useCorrect ? C.green : C.red, fontWeight: "900", marginHorizontal: 4 }]}>
+                        {useCorrect ? useTask.answer : useAnswer}
+                      </Text>
+                    )}
+                    <Text style={[s.useItSentence, { flexShrink: 1 }]}>{sentenceParts[1] || ""}</Text>
+                  </View>
                   <Text style={s.useItMeaning}>{useTask.meaning}</Text>
                 </View>
 
-                {/* Input */}
-                {!useChecked && (
-                  <View>
-                    <TextInput
-                      style={s.writeInput}
-                      value={useAnswer}
-                      onChangeText={(t) => setWriteAnswers({ ...writeAnswers, [`use-${sceneIdx}`]: t })}
-                      placeholder="Type the missing word..."
-                      placeholderTextColor={C.muted}
-                      autoCapitalize="none"
-                    />
-                    {useAnswer.trim().length > 0 && (
-                      <TouchableOpacity style={s.writeCheckBtn} onPress={() => {
-                        setWriteChecked({ ...writeChecked, [`use-${sceneIdx}`]: true });
-                        if (useAnswer.trim().toLowerCase() === useTask.answer.toLowerCase()) addXP(10);
-                      }}>
-                        <Text style={s.writeCheckText}>Check ✓</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                {/* Check button */}
+                {!useChecked && useAnswer.trim().length > 0 && (
+                  <TouchableOpacity style={s.writeCheckBtn} onPress={() => {
+                    setWriteChecked({ ...writeChecked, [`use-${sceneIdx}`]: true });
+                    if (useAnswer.trim().toLowerCase() === useTask.answer.toLowerCase()) addXP(10);
+                  }}>
+                    <Text style={s.writeCheckText}>Prüfen ✓</Text>
+                  </TouchableOpacity>
                 )}
 
                 {/* Feedback */}
                 {useChecked && useCorrect && (
-                  <Text style={s.correctFeedback}>✅ "{useTask.fullSentence}"</Text>
+                  <Text style={s.correctFeedback}>✅ Richtig! "{useTask.fullSentence}"</Text>
                 )}
                 {useChecked && !useCorrect && (
                   <View>
-                    <Text style={s.wrongFeedback}>The word is: "{useTask.answer}"</Text>
+                    <Text style={s.wrongFeedback}>Das Wort ist: "{useTask.answer}"</Text>
                     <Text style={[s.correctFeedback, { marginTop: 4 }]}>→ {useTask.fullSentence}</Text>
                   </View>
                 )}
 
                 {useChecked && (
-                  <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={() => setSceneIdx(sceneIdx + 1)}>
-                    <Text style={s.nextBtnText}>{sceneIdx < (card.tasks?.length || 0) - 1 ? "Next phrase →" : "Done! →"}</Text>
+                  <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={() => { setSceneIdx(sceneIdx + 1); setWriteChecked({ ...writeChecked, [`use-${sceneIdx}`]: false }); }}>
+                    <Text style={s.nextBtnText}>{sceneIdx < (card.tasks?.length || 0) - 1 ? "Nächster Satz →" : "Fertig! →"}</Text>
                   </TouchableOpacity>
                 )}
               </View>
