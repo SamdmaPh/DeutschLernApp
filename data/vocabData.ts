@@ -1131,6 +1131,9 @@ const VOCAB_DATA_BASE: VocabEntry[] = [
 import { VOCAB_A1_A2 } from "./vocabA1A2";
 import { VOCAB_B1_B2 } from "./vocabB1B2";
 import { VOCAB_C1_C2, REDEWENDUNGEN } from "./vocabC1C2";
+import { VOCAB_GOETHE_A1 } from "./vocabGoetheA1";
+import { VOCAB_GOETHE_A2 } from "./vocabGoetheA2";
+import { VOCAB_GOETHE_B1 } from "./vocabGoetheB1";
 
 // Deduplizierung: Neue Einträge nur hinzufügen wenn das Wort noch nicht existiert
 const existingWords = new Set(VOCAB_DATA_BASE.map(v => v.word.toLowerCase()));
@@ -1148,6 +1151,9 @@ export const VOCAB_DATA: VocabEntry[] = [
   ...addUnique(VOCAB_B1_B2),
   ...addUnique(VOCAB_C1_C2),
   ...addUnique(REDEWENDUNGEN),
+  ...addUnique(VOCAB_GOETHE_A1),
+  ...addUnique(VOCAB_GOETHE_A2),
+  ...addUnique(VOCAB_GOETHE_B1),
 ];
 
 // Hilfsfunktion: Alle Wörter eines Levels
