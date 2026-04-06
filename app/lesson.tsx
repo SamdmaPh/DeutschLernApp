@@ -302,9 +302,8 @@ export default function LessonScreen() {
           </View>
         );
 
-      // ── 2. LISTEN ──
+      // ── 2. LISTEN (Interactive line-by-line) ──
       case "listen": {
-        // Parse dialog lines
         const dialogLines = card.transcript.split("\n").filter(Boolean).map((line: string) => {
           const [speaker, ...rest] = line.split(":");
           return { speaker: speaker.trim(), text: rest.join(":").trim() };
@@ -315,36 +314,32 @@ export default function LessonScreen() {
           return rest.join(":").trim();
         });
 
-        // Play entire dialog with 2 voices via ElevenLabs
-        const playFullDialog = async () => {
+        // Current line index tracked via dialogStep (reused state)
+        const listenIdx = dialogStep;
+        const currentLine = dialogLines[listenIdx];
+        const allHeard = listenIdx >= dialogLines.length;
+
+        const playLine = async (text: string, speaker: string) => {
           setAudioPlaying(true);
-          for (let i = 0; i < dialogLines.length; i++) {
-            const line = dialogLines[i];
-            // Use different voice for "You" (female) vs NPC (male/character)
-            if (line.speaker === "You") {
-              await ElevenLabs.playText(line.text, VOICES.female);
-            } else {
-              await ElevenLabs.playCharacterLine(line.speaker, line.text);
-            }
-            await new Promise(r => setTimeout(r, 600));
+          if (speaker === "You") {
+            await ElevenLabs.playText(text, VOICES.female);
+          } else {
+            await ElevenLabs.playCharacterLine(speaker, text);
           }
           setAudioPlaying(false);
         };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LISTENING</Text>
-            <Text style={s.pronSubtitle}>Listen to the full conversation with 2 speakers. Follow along with the text. You'll answer questions in the next step!</Text>
+            <Text style={s.label}>LISTEN & FOLLOW</Text>
+            <Text style={s.pronSubtitle}>Hear each line, read along, then tap "Next" when you understand.</Text>
 
-            {/* Big play button */}
-            <TouchableOpacity style={s.bigPlayBtn} onPress={playFullDialog} disabled={audioPlaying} activeOpacity={0.7}>
-              <Text style={s.bigPlayIcon}>{audioPlaying ? "🔊" : "▶"}</Text>
-              <Text style={s.bigPlayText}>{audioPlaying ? "Playing..." : "Play conversation"}</Text>
-            </TouchableOpacity>
+            {/* Progress */}
+            <Text style={s.sceneProgress}>Line {Math.min(listenIdx + 1, dialogLines.length)} of {dialogLines.length}</Text>
 
-            {/* Dialog as chat bubbles (always visible) */}
+            {/* Already heard lines */}
             <View style={s.dialogBox}>
-              {dialogLines.map((line: any, i: number) => (
+              {dialogLines.slice(0, listenIdx).map((line: any, i: number) => (
                 <View key={i} style={line.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
                   <Text style={s.bubbleSpeaker}>{line.speaker}</Text>
                   <Text style={[s.bubbleText, line.speaker === "You" && { color: "#fff" }]}>{line.text}</Text>
@@ -353,19 +348,58 @@ export default function LessonScreen() {
               ))}
             </View>
 
-            {/* Key words */}
-            {card.highlights && (
-              <View style={s.keyWordsBox}>
-                <Text style={s.keyWordsTitle}>KEY WORDS</Text>
-                {card.highlights.slice(0, 6).map((h: string, i: number) => {
-                  const [de, en] = h.split("::").map((s: string) => s.trim());
-                  return (
-                    <View key={i} style={s.keyWordRow}>
-                      <Text style={s.keyWordDe}>{de}</Text>
-                      <Text style={s.keyWordEn}>{en}</Text>
-                    </View>
-                  );
-                })}
+            {/* Current line — interactive */}
+            {currentLine && !allHeard && (
+              <View style={{ marginTop: 8 }}>
+                <View style={[currentLine.speaker === "You" ? s.bubbleRight : s.bubbleLeft, { borderWidth: 2, borderColor: C.gold }]}>
+                  <Text style={s.bubbleSpeaker}>{currentLine.speaker}</Text>
+                  <Text style={[s.bubbleText, currentLine.speaker === "You" && { color: "#fff" }, { fontSize: 18 }]}>{currentLine.text}</Text>
+                  {dialogAnswered && <Text style={[s.bubbleTranslation, currentLine.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{transLines[listenIdx] || ""}</Text>}
+                </View>
+
+                {/* Listen button */}
+                <TouchableOpacity style={s.bigPlayBtn} onPress={() => { playLine(currentLine.text, currentLine.speaker); setDialogAnswered(true); }} disabled={audioPlaying} activeOpacity={0.7}>
+                  <Text style={s.bigPlayIcon}>{audioPlaying ? "🔊" : "▶"}</Text>
+                  <Text style={s.bigPlayText}>{audioPlaying ? "Playing..." : `Hear "${currentLine.text.slice(0, 20)}${currentLine.text.length > 20 ? "..." : ""}"`}</Text>
+                </TouchableOpacity>
+
+                {/* Show translation button */}
+                {!dialogAnswered && (
+                  <TouchableOpacity style={{ alignItems: "center", marginTop: 8 }} onPress={() => setDialogAnswered(true)}>
+                    <Text style={{ fontSize: 13, color: C.gold }}>Show translation</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Next line */}
+                {dialogAnswered && (
+                  <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={() => { setDialogStep(listenIdx + 1); setDialogAnswered(false); addXP(3); scrollRef.current?.scrollToEnd?.({ animated: true }); }}>
+                    <Text style={s.nextBtnText}>{listenIdx < dialogLines.length - 1 ? "Next line →" : "Done listening! →"}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* All heard */}
+            {allHeard && (
+              <View>
+                <View style={s.pronComplete}>
+                  <Text style={s.pronCompleteText}>You heard the full conversation!</Text>
+                </View>
+                {/* Key words */}
+                {card.highlights && (
+                  <View style={s.keyWordsBox}>
+                    <Text style={s.keyWordsTitle}>KEY WORDS</Text>
+                    {card.highlights.slice(0, 8).map((h: string, i: number) => {
+                      const [de, en] = h.split("::").map((s: string) => s.trim());
+                      return (
+                        <View key={i} style={s.keyWordRow}>
+                          <Text style={s.keyWordDe}>{de}</Text>
+                          <Text style={s.keyWordEn}>{en}</Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -1031,7 +1065,7 @@ export default function LessonScreen() {
         );
       }
 
-      // ── 9b. WRITING EXERCISE ──
+      // ── 9b. WRITING EXERCISE (easier with hints) ──
       case "write": {
         return (
           <View style={s.cardInner}>
@@ -1040,7 +1074,6 @@ export default function LessonScreen() {
             {card.tasks.map((task: any, i: number) => {
               const userAnswer = writeAnswers[i] || "";
               const checked = writeChecked[i];
-              // Accept: full sentence OR just the missing word(s)
               const expected = (task.expected || "").trim().toLowerCase();
               const answer = userAnswer.trim().toLowerCase();
               const isCorrect = checked && (
@@ -1048,16 +1081,25 @@ export default function LessonScreen() {
                 expected.includes(answer) && answer.length >= 3 ||
                 answer.replace(/[.,!?]/g, "") === expected.replace(/[.,!?]/g, "")
               );
+              // Generate hint: show first letter + length
+              const hintText = task.expected ? `${task.expected[0]}${"_".repeat(task.expected.length - 1)} (${task.expected.length} letters)` : "";
               return (
                 <View key={i} style={s.writeTask}>
                   <Text style={s.writePrompt}>{task.prompt}</Text>
+
+                  {/* Hint box */}
+                  <View style={{ backgroundColor: C.blueDim, borderRadius: 10, padding: 10, marginBottom: 8 }}>
+                    <Text style={{ fontSize: 12, color: C.blue, fontWeight: "600" }}>💡 Hint: {hintText}</Text>
+                  </View>
+
                   <TextInput
                     style={[s.writeInput, checked && isCorrect && s.writeInputCorrect, checked && !isCorrect && s.writeInputWrong]}
                     value={userAnswer}
                     onChangeText={(t) => setWriteAnswers({ ...writeAnswers, [i]: t })}
-                    placeholder="Type the missing word(s)..."
+                    placeholder="Type the missing word..."
                     placeholderTextColor={C.muted}
                     editable={!checked}
+                    autoCapitalize="none"
                   />
                   {!checked && userAnswer.trim().length > 0 && (
                     <TouchableOpacity style={s.writeCheckBtn} onPress={() => {
@@ -1069,10 +1111,10 @@ export default function LessonScreen() {
                       <Text style={s.writeCheckText}>Check ✓</Text>
                     </TouchableOpacity>
                   )}
-                  {checked && isCorrect && <Text style={s.correctFeedback}>✅ Perfect!</Text>}
+                  {checked && isCorrect && <Text style={s.correctFeedback}>✅ Richtig! +10 XP</Text>}
                   {checked && !isCorrect && (
                     <View>
-                      <Text style={s.wrongFeedback}>Not quite. The full answer is:</Text>
+                      <Text style={s.wrongFeedback}>Die Antwort ist:</Text>
                       <Text style={s.writeExpected}>{task.expected}</Text>
                     </View>
                   )}
@@ -1193,49 +1235,75 @@ export default function LessonScreen() {
               </TouchableOpacity>
             )}
 
-            {/* User hint + input */}
+            {/* User turn — Multiple choice + optional free input */}
             {!dlgDone && dlgPhase === "hint" && currentDlgStep?.type === "user" && (
               <View style={{ marginTop: 12 }}>
+                {/* What to say hint */}
                 <View style={{ backgroundColor: C.blueDim, borderRadius: 14, padding: 16, marginBottom: 12 }}>
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: C.blue, letterSpacing: 1, marginBottom: 4 }}>💡 HINT</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "800", color: C.blue, letterSpacing: 1, marginBottom: 4 }}>YOUR TURN</Text>
                   <Text style={{ fontSize: 14, color: C.blue, lineHeight: 20 }}>{currentDlgStep.hint || currentDlgStep.translation}</Text>
                 </View>
 
-                {/* Suggestion */}
-                <View style={{ backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 14, marginBottom: 12 }}>
-                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 1.5, marginBottom: 6 }}>YOU COULD SAY:</Text>
-                  <TouchableOpacity onPress={() => setDlgInput(currentDlgStep.text)} activeOpacity={0.7}>
-                    <Text style={{ fontSize: 17, fontWeight: "700", color: C.text }}>{currentDlgStep.text}</Text>
-                    <Text style={{ fontSize: 13, color: C.muted, marginTop: 4, fontStyle: "italic" }}>{currentDlgStep.translation}</Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Multiple choice options — correct answer + 2 distractors */}
+                <Text style={{ fontSize: 11, fontWeight: "700", color: C.muted, letterSpacing: 1, marginBottom: 8 }}>CHOOSE YOUR RESPONSE:</Text>
+                {(() => {
+                  const correctText = currentDlgStep.text;
+                  // Generate plausible wrong options from other dialog steps or common phrases
+                  const otherUserLines = card.steps?.filter((s: any) => s.type === "user" && s.text !== correctText).map((s: any) => s.text) || [];
+                  const fallbackOptions = ["Ich verstehe nicht.", "Nein, danke.", "Wie bitte?", "Ja, natürlich!", "Entschuldigung."];
+                  const wrongOptions = [...otherUserLines, ...fallbackOptions].filter(o => o !== correctText).slice(0, 2);
+                  const allOptions = [correctText, ...wrongOptions].sort(() => Math.random() - 0.5);
 
-                {/* Input row */}
-                <View style={s.chatInputRow}>
-                  <TextInput
-                    style={s.chatInput}
-                    value={dlgInput}
-                    onChangeText={setDlgInput}
-                    placeholder="Type in German or tap suggestion..."
-                    placeholderTextColor={C.muted}
-                    onSubmitEditing={handleDlgRespond}
-                    returnKeyType="send"
-                  />
-                  {/* Mic button */}
-                  <TouchableOpacity style={s.micBtn} onPress={async () => {
-                    setDlgPlaying(true);
-                    const result = await ElevenLabs.speechToText();
-                    setDlgPlaying(false);
-                    if (result) {
-                      setDlgInput(result);
-                    }
-                  }} disabled={dlgPlaying} activeOpacity={0.7}>
-                    <Text style={s.micBtnText}>{dlgPlaying ? "⏳" : "🎤"}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={s.sendBtn} onPress={handleDlgRespond} activeOpacity={0.7}>
-                    <Text style={s.sendBtnText}>→</Text>
-                  </TouchableOpacity>
-                </View>
+                  return allOptions.map((opt, i) => {
+                    const isSelected = dlgInput === opt;
+                    const isCorrect = opt === correctText;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={[s.optBtn, isSelected && isCorrect && s.optCorrect, isSelected && !isCorrect && s.optWrong]}
+                        onPress={() => {
+                          if (!dialogAnswered) {
+                            setDlgInput(opt);
+                            setDialogAnswered(true);
+                            if (isCorrect) {
+                              // Auto-respond after short delay
+                              setTimeout(() => handleDlgRespond(), 800);
+                            }
+                          }
+                        }}
+                        activeOpacity={dialogAnswered ? 1 : 0.7}
+                      >
+                        <Text style={[s.optText, isSelected && isCorrect && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
+                        {isSelected && isCorrect && <Text style={{ color: C.green, fontWeight: "800" }}>✓</Text>}
+                        {isSelected && !isCorrect && <Text style={{ color: C.red, fontWeight: "800" }}>✗</Text>}
+                      </TouchableOpacity>
+                    );
+                  });
+                })()}
+
+                {/* Wrong answer feedback */}
+                {dialogAnswered && dlgInput !== currentDlgStep.text && (
+                  <View style={{ marginTop: 8 }}>
+                    <Text style={{ fontSize: 13, color: C.red, marginBottom: 4 }}>The correct response is:</Text>
+                    <TouchableOpacity style={[s.optBtn, { borderColor: C.green, backgroundColor: C.greenDim }]} onPress={() => { setDlgInput(currentDlgStep.text); setTimeout(() => handleDlgRespond(), 500); }}>
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: C.green }}>{currentDlgStep.text}</Text>
+                      <Text style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{currentDlgStep.translation}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Or type freely (collapsed) */}
+                {!dialogAnswered && (
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={{ fontSize: 12, color: C.muted, textAlign: "center", marginBottom: 6 }}>— or type your own response —</Text>
+                    <View style={s.chatInputRow}>
+                      <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Type in German..." placeholderTextColor={C.muted} onSubmitEditing={handleDlgRespond} returnKeyType="send" />
+                      <TouchableOpacity style={s.sendBtn} onPress={handleDlgRespond} activeOpacity={0.7}>
+                        <Text style={s.sendBtnText}>→</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
 
@@ -1303,42 +1371,47 @@ export default function LessonScreen() {
           </View>
         );
 
-      // ── 11. SELF-RATE ──
+      // ── 11. SELF-RATE (with visible consequences) ──
       case "selfrate":
         return (
           <View style={s.cardInner}>
             <Text style={s.cardEmoji}>⭐</Text>
-            <Text style={s.label}>HOW DO YOU FEEL?</Text>
+            <Text style={s.label}>WIE SICHER FÜHLST DU DICH?</Text>
             <Text style={s.rateTitle}>How confident are you with this lesson?</Text>
-            <Text style={s.rateDesc}>Be honest — this helps us personalize your learning.</Text>
+            <Text style={s.rateDesc}>Your rating decides what happens next!</Text>
             <View style={s.rateRow}>
               {[1, 2, 3, 4, 5].map(n => (
-                <TouchableOpacity key={n} style={[s.rateStar, selfRating >= n && s.rateStarActive]} onPress={() => setSelfRating(n)}>
+                <TouchableOpacity key={n} style={[s.rateStar, selfRating >= n && s.rateStarActive]} onPress={() => { setSelfRating(n); if (n >= 3) addXP(n * 5); }}>
                   <Text style={[s.rateStarText, selfRating >= n && { color: C.gold }]}>{selfRating >= n ? "★" : "☆"}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-            <View style={s.rateLabels}><Text style={s.rateLabelText}>Not sure</Text><Text style={s.rateLabelText}>Very confident</Text></View>
+            <View style={s.rateLabels}><Text style={s.rateLabelText}>Unsicher</Text><Text style={s.rateLabelText}>Sehr sicher</Text></View>
             {selfRating > 0 && (
               <View>
-                <View style={s.rateFeedback}>
-                  <Text style={s.rateFeedbackText}>
-                    {selfRating <= 2 ? "💪 That's okay! This lesson has been added to your review list. You can replay it anytime — practice makes perfect!" :
-                     selfRating === 3 ? "🎯 Good start! Try the Live Conversation feature to practice speaking. The more you speak, the more confident you'll get." :
-                     selfRating === 4 ? "🚀 Great job! You're building a solid foundation. Your character is getting stronger!" :
-                     "⭐ Amazing! You nailed this lesson. Your skill tree is growing!"}
+                {/* Consequence 1: Review or Skip */}
+                <View style={[s.rateAction, selfRating <= 2 ? { backgroundColor: C.redDim, borderColor: C.redLine } : { backgroundColor: C.greenDim, borderColor: C.greenLine }]}>
+                  <Text style={[s.rateActionText, { color: selfRating <= 2 ? C.red : C.green, fontSize: 15, fontWeight: "700" }]}>
+                    {selfRating <= 2 ? "🔄 Lektion wird zur täglichen Review hinzugefügt" : "✅ Lektion abgeschlossen!"}
                   </Text>
                 </View>
-                {selfRating <= 2 && (
-                  <View style={s.rateAction}>
-                    <Text style={s.rateActionText}>📝 This lesson was added to your Daily Review</Text>
-                  </View>
-                )}
-                {selfRating >= 4 && (
-                  <View style={[s.rateAction, { backgroundColor: C.greenDim, borderColor: C.greenLine }]}>
-                    <Text style={[s.rateActionText, { color: C.green }]}>🌳 +1 Skill unlocked in your skill tree!</Text>
-                  </View>
-                )}
+
+                {/* Consequence 2: XP Bonus */}
+                <View style={[s.rateAction, { backgroundColor: C.goldDim, borderColor: C.goldLine, marginTop: 8 }]}>
+                  <Text style={[s.rateActionText, { color: C.gold, fontSize: 15, fontWeight: "700" }]}>
+                    +{selfRating * 5} Bonus-XP {selfRating >= 4 ? "🎉" : ""}
+                  </Text>
+                </View>
+
+                {/* Consequence 3: Character reward */}
+                <View style={[s.rateAction, { marginTop: 8 }]}>
+                  <Text style={s.rateActionText}>
+                    {selfRating <= 2 ? "📝 Dein Avatar übt diese Wörter morgen nochmal" :
+                     selfRating === 3 ? "🗺️ Dein Avatar bewegt sich etwas weiter auf der Karte" :
+                     selfRating === 4 ? "🌭 Dein Avatar bekommt eine Bratwurst als Belohnung!" :
+                     "🏆 Dein Avatar hat einen neuen Skill freigeschaltet!"}
+                  </Text>
+                </View>
               </View>
             )}
           </View>
@@ -1474,9 +1547,9 @@ const s = StyleSheet.create({
   // Modern phase navigation
   phaseNav: { paddingHorizontal: 20, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.border },
   phaseDotsRow: { flexDirection: "row", gap: 3, justifyContent: "center", marginBottom: 6 },
-  phaseNavDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.bg3 },
+  phaseNavDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.bg3 },
   phaseNavDotDone: { backgroundColor: C.green },
-  phaseNavDotActive: { backgroundColor: C.gold, width: 20, borderRadius: 4 },
+  phaseNavDotActive: { backgroundColor: C.gold, width: 24, height: 10, borderRadius: 5 },
   phaseNavLabel: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   phaseNavEmoji: { fontSize: 14 },
   phaseNavText: { fontSize: 13, fontWeight: "700", color: C.text },
