@@ -316,15 +316,16 @@ export default function LessonScreen() {
 
         const BACKEND_URL = "https://deutschlernappbackend2-production.up.railway.app";
 
-        // Play dialog line-by-line with Railway TTS (more reliable than ElevenLabs)
+        // Play dialog line-by-line with 2 voices (male NPC, female You)
         const playFullDialog = async () => {
           setAudioPlaying(true);
           for (let i = 0; i < dialogLines.length; i++) {
+            const voice = dialogLines[i].speaker === "You" ? "female" : "male";
             try {
               const res = await fetch(`${BACKEND_URL}/api/speak`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: dialogLines[i].text }),
+                body: JSON.stringify({ text: dialogLines[i].text, voice }),
               });
               const data = await res.json();
               if (data.audio) {
@@ -1562,7 +1563,7 @@ export default function LessonScreen() {
   };
 
   // Phase names for the navigation bar
-  const PHASE_NAMES = ["Start", "Listen", "Check", "Match", "Sound", "Use it", "Grammar", "Words", "Build", "Write", "Speak!", "Rate", "Done"];
+  const PHASE_NAMES = ["1 Start", "2 Hören", "3 Verstehen", "4 Zuordnen", "5 Aussprache", "6 Ergänzen", "7 Grammatik", "8 Vokabeln", "9 Satzbau", "10 Schreiben", "11 Sprechen", "12 Bewertung", "13 Geschafft"];
 
   return (
     <View style={s.root}>
