@@ -1243,14 +1243,23 @@ export default function LessonScreen() {
             });
             const data = await res.json();
             if (data.userText) {
-              setDialogHistory(h => [...h, { speaker: "You", text: data.userText }, { speaker: charName, text: data.assistantText || "..." }]);
+              const npcText = data.assistantText || "...";
+              setDialogHistory(h => [...h, { speaker: "You", text: data.userText }, { speaker: charName, text: npcText }]);
               addXP(15);
-              // Play NPC response audio
-              if (data.audio) {
-                try {
-                  const { sound } = await (await import("expo-av")).Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${data.audio}` }, { shouldPlay: true });
-                } catch {}
-              }
+              // ALWAYS play NPC response via TTS — use data.audio if available, otherwise fetch TTS
+              try {
+                let audioBase64 = data.audio;
+                if (!audioBase64) {
+                  const ttsRes = await fetch(`${BACKEND}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: npcText, voice: "male" }) });
+                  const ttsData = await ttsRes.json();
+                  audioBase64 = ttsData.audio;
+                }
+                if (audioBase64) {
+                  const AudioModule = await import("expo-av");
+                  await AudioModule.Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+                  const { sound } = await AudioModule.Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${audioBase64}` }, { shouldPlay: true });
+                }
+              } catch {}
               if (data.corrections?.length) {
                 setDlgFeedback(data.corrections.map((c: any) => `"${c.original}" → "${c.corrected}" (${c.explanation})`).join("\n"));
               }
@@ -1280,12 +1289,14 @@ export default function LessonScreen() {
               if (data.corrections?.length) {
                 setDlgFeedback(data.corrections.map((c: any) => `"${c.original}" → "${c.corrected}" (${c.explanation})`).join("\n"));
               }
-              // Play TTS
+              // ALWAYS play NPC response aloud
               try {
-                const ttsRes = await fetch(`${BACKEND}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: data.text }) });
+                const ttsRes = await fetch(`${BACKEND}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: data.text, voice: "male" }) });
                 const ttsData = await ttsRes.json();
                 if (ttsData.audio) {
-                  const { sound } = await (await import("expo-av")).Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${ttsData.audio}` }, { shouldPlay: true });
+                  const AudioModule = await import("expo-av");
+                  await AudioModule.Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+                  const { sound } = await AudioModule.Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${ttsData.audio}` }, { shouldPlay: true });
                 }
               } catch {}
             }
