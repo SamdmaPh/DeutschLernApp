@@ -314,20 +314,43 @@ export default function LessonScreen() {
           return rest.join(":").trim();
         });
 
-        // Play entire dialog with 2 voices
+        const BACKEND_URL = "https://deutschlernappbackend2-production.up.railway.app";
+
+        // Play dialog line-by-line with Railway TTS (more reliable than ElevenLabs)
         const playFullDialog = async () => {
           setAudioPlaying(true);
           for (let i = 0; i < dialogLines.length; i++) {
-            const line = dialogLines[i];
-            if (line.speaker === "You") {
-              await ElevenLabs.playText(line.text, VOICES.female);
-            } else {
-              await ElevenLabs.playCharacterLine(line.speaker, line.text);
+            try {
+              const res = await fetch(`${BACKEND_URL}/api/speak`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ text: dialogLines[i].text }),
+              });
+              const data = await res.json();
+              if (data.audio) {
+                const AudioModule = await import("expo-av");
+                await AudioModule.Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+                const { sound } = await AudioModule.Audio.Sound.createAsync(
+                  { uri: `data:audio/mpeg;base64,${data.audio}` },
+                  { shouldPlay: true }
+                );
+                // Wait for playback to finish
+                await new Promise<void>(resolve => {
+                  sound.setOnPlaybackStatusUpdate(status => {
+                    if (status.isLoaded && status.didJustFinish) { sound.unloadAsync(); resolve(); }
+                  });
+                  // Timeout fallback
+                  setTimeout(() => { sound.unloadAsync(); resolve(); }, 5000);
+                });
+              }
+            } catch {
+              // Fallback: just pause between lines
+              await new Promise(r => setTimeout(r, 1500));
             }
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 400));
           }
           setAudioPlaying(false);
-          setDialogAnswered(true); // mark as heard
+          setDialogAnswered(true);
         };
 
         return (
@@ -1111,11 +1134,11 @@ export default function LessonScreen() {
         );
       }
 
-      // ── 10. LIVE AI CONVERSATION ──
+      // ── 10. LIVE GESPRÄCH (Real AI conversation via Railway backend) ──
       case "dialog": {
-        const currentDlgStep = card.steps?.[dialogStep];
-        const dlgDone = dialogStep >= (card.steps?.length || 0);
         const charName = card.character || "Partner";
+        const BACKEND = "https://deutschlernappbackend2-production.up.railway.app";
+        const dlgDone = dialogHistory.length >= 6; // 3 exchanges = done
 
         const playNpcAndAdvance = async () => {
           if (!currentDlgStep || currentDlgStep.type !== "npc") return;
@@ -1179,6 +1202,138 @@ export default function LessonScreen() {
           }
         };
 
+        // Live conversation via Railway backend
+        const startLiveConversation = async () => {
+          setDlgPhase("npc");
+          setChatLoading(true);
+          try {
+            // First NPC message based on lesson situation
+            const systemContext = `Du bist ${charName} in der Situation: "${card.situation}". Sprich einfaches Deutsch (A1). Begrüße den Schüler und starte das Gespräch passend zur Situation. Nur 1-2 kurze Sätze. Sei freundlich und natürlich.`;
+            const res = await fetch(`${BACKEND}/api/conversation`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages: [{ role: "user", content: systemContext }], topic: card.situation, level: "A1" }),
+            });
+            const data = await res.json();
+            if (data.text) {
+              setDialogHistory([{ speaker: charName, text: data.text }]);
+              // Play NPC audio
+              try {
+                const ttsRes = await fetch(`${BACKEND}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: data.text }) });
+                const ttsData = await ttsRes.json();
+                if (ttsData.audio) {
+                  const { sound } = await (await import("expo-av")).Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${ttsData.audio}` }, { shouldPlay: true });
+                }
+              } catch {}
+            }
+          } catch (err: any) { setDlgFeedback("Verbindungsfehler: " + err.message); }
+          setChatLoading(false);
+          setDlgPhase("hint");
+        };
+
+        const sendVoiceMessage = async (audioBase64: string) => {
+          setChatLoading(true);
+          try {
+            const allMsgs = dialogHistory.map(m => ({ role: m.speaker === "You" ? "user" as const : "assistant" as const, content: m.text }));
+            const res = await fetch(`${BACKEND}/api/audio-conversation`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ audio: audioBase64, messages: allMsgs, level: "A1" }),
+            });
+            const data = await res.json();
+            if (data.userText) {
+              setDialogHistory(h => [...h, { speaker: "You", text: data.userText }, { speaker: charName, text: data.assistantText || "..." }]);
+              addXP(15);
+              // Play NPC response audio
+              if (data.audio) {
+                try {
+                  const { sound } = await (await import("expo-av")).Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${data.audio}` }, { shouldPlay: true });
+                } catch {}
+              }
+              if (data.corrections?.length) {
+                setDlgFeedback(data.corrections.map((c: any) => `"${c.original}" → "${c.corrected}" (${c.explanation})`).join("\n"));
+              }
+            }
+          } catch (err: any) { setDlgFeedback("Fehler: " + err.message); }
+          setChatLoading(false);
+          scrollRef.current?.scrollToEnd?.({ animated: true });
+        };
+
+        const sendTextMessage = async () => {
+          if (!dlgInput.trim() || chatLoading) return;
+          const userText = dlgInput.trim();
+          setDlgInput("");
+          setChatLoading(true);
+          const allMsgs = [...dialogHistory.map(m => ({ role: m.speaker === "You" ? "user" as const : "assistant" as const, content: m.text })), { role: "user" as const, content: userText }];
+          setDialogHistory(h => [...h, { speaker: "You", text: userText }]);
+          try {
+            const res = await fetch(`${BACKEND}/api/conversation`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messages: allMsgs, topic: card.situation, level: "A1" }),
+            });
+            const data = await res.json();
+            if (data.text) {
+              setDialogHistory(h => [...h, { speaker: charName, text: data.text }]);
+              addXP(10);
+              if (data.corrections?.length) {
+                setDlgFeedback(data.corrections.map((c: any) => `"${c.original}" → "${c.corrected}" (${c.explanation})`).join("\n"));
+              }
+              // Play TTS
+              try {
+                const ttsRes = await fetch(`${BACKEND}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: data.text }) });
+                const ttsData = await ttsRes.json();
+                if (ttsData.audio) {
+                  const { sound } = await (await import("expo-av")).Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${ttsData.audio}` }, { shouldPlay: true });
+                }
+              } catch {}
+            }
+          } catch (err: any) { setDlgFeedback("Fehler: " + err.message); }
+          setChatLoading(false);
+          scrollRef.current?.scrollToEnd?.({ animated: true });
+        };
+
+        // Voice recording
+        const recordAndSend = async () => {
+          try {
+            const AudioModule = await import("expo-av");
+            const { granted } = await AudioModule.Audio.requestPermissionsAsync();
+            if (!granted) { setDlgFeedback("Mikrofon-Zugriff verweigert"); return; }
+            await AudioModule.Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+
+            if (!dlgPlaying) {
+              // Start recording
+              const { recording } = await AudioModule.Audio.Recording.createAsync(AudioModule.Audio.RecordingOptionsPresets.HIGH_QUALITY);
+              setDlgPlaying(true);
+              // Store recording ref in a hacky but working way
+              (globalThis as any).__activeRecording = recording;
+            } else {
+              // Stop recording and send
+              const recording = (globalThis as any).__activeRecording;
+              if (recording) {
+                await recording.stopAndUnloadAsync();
+                const uri = recording.getURI();
+                (globalThis as any).__activeRecording = null;
+                setDlgPlaying(false);
+                if (uri) {
+                  const response = await fetch(uri);
+                  const blob = await response.blob();
+                  const base64 = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                  });
+                  await sendVoiceMessage(base64);
+                }
+              }
+            }
+          } catch (err: any) {
+            setDlgFeedback("Aufnahme-Fehler: " + err.message);
+            setDlgPlaying(false);
+          }
+        };
+
         return (
           <View style={s.cardInner}>
             <Text style={s.label}>LIVE GESPRÄCH</Text>
@@ -1189,14 +1344,8 @@ export default function LessonScreen() {
               <View style={{ alignItems: "center", marginTop: 12 }}>
                 <Text style={{ fontSize: 48, marginBottom: 12 }}>🎭</Text>
                 <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, textAlign: "center" }}>Sprich mit {charName}</Text>
-                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>Du hörst was {charName} sagt. Dann sprichst DU — laut, auf Deutsch! Du bekommst Tipps was du sagen kannst.</Text>
-                <TouchableOpacity style={[s.nextBtn, { marginTop: 20, paddingHorizontal: 40 }]} onPress={() => {
-                  if (currentDlgStep?.type === "npc") {
-                    setDlgPhase("npc");
-                  } else {
-                    setDlgPhase("hint");
-                  }
-                }} activeOpacity={0.85}>
+                <Text style={{ fontSize: 14, color: C.muted, textAlign: "center", marginTop: 8, lineHeight: 20 }}>{charName} spricht Deutsch mit dir. Ein echtes Gespräch — wie im echten Leben! Drück auf den Mikrofon-Button und antworte laut.</Text>
+                <TouchableOpacity style={[s.nextBtn, { marginTop: 20, paddingHorizontal: 40 }]} onPress={startLiveConversation} activeOpacity={0.85}>
                   <Text style={s.nextBtnText}>Gespräch starten 🎤</Text>
                 </TouchableOpacity>
               </View>
@@ -1210,90 +1359,47 @@ export default function LessonScreen() {
               </View>
             ))}
 
-            {/* NPC speaking indicator */}
-            {dlgPlaying && <Text style={{ color: C.purple, fontWeight: "700", fontSize: 13, marginTop: 8 }}>🔊 {charName} spricht...</Text>}
-
-            {/* NPC line — tap to hear */}
-            {!dlgDone && dlgPhase === "npc" && currentDlgStep?.type === "npc" && !dlgPlaying && (
-              <TouchableOpacity style={s.npcPlayBtn} onPress={playNpcAndAdvance} activeOpacity={0.7}>
-                <Text style={s.npcPlayText}>🔊 {currentDlgStep.speaker} hören</Text>
-              </TouchableOpacity>
+            {/* Loading */}
+            {chatLoading && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}>
+                <Text style={{ fontSize: 16 }}>💬</Text>
+                <Text style={{ color: C.muted, fontSize: 13 }}>{charName} denkt nach...</Text>
+              </View>
             )}
 
-            {/* User turn — SPEAK first, with hints */}
-            {!dlgDone && dlgPhase === "hint" && currentDlgStep?.type === "user" && (
-              <View style={{ marginTop: 12 }}>
-                {/* Hint: what to say */}
-                <View style={{ backgroundColor: C.goldDim, borderRadius: 14, borderWidth: 1, borderColor: C.goldLine, padding: 16, marginBottom: 12 }}>
-                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 1.5, marginBottom: 6 }}>💡 TIPP — SAG ETWAS WIE:</Text>
-                  <Text style={{ fontSize: 18, fontWeight: "700", color: C.text }}>{currentDlgStep.text}</Text>
-                  <Text style={{ fontSize: 13, color: C.muted, marginTop: 4, fontStyle: "italic" }}>{currentDlgStep.translation}</Text>
-                </View>
+            {/* Corrections feedback */}
+            {dlgFeedback && !chatLoading && (
+              <View style={{ backgroundColor: C.goldDim, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.goldLine }}>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: C.gold, letterSpacing: 1, marginBottom: 4 }}>KORREKTUR</Text>
+                <Text style={{ fontSize: 13, color: C.text, lineHeight: 19 }}>{dlgFeedback}</Text>
+              </View>
+            )}
 
-                {/* Big microphone button — PRIMARY action */}
+            {/* Voice input — Big mic button */}
+            {!dlgDone && dialogHistory.length > 0 && !chatLoading && (
+              <View style={{ alignItems: "center", marginTop: 16 }}>
                 <TouchableOpacity
                   style={{
                     backgroundColor: dlgPlaying ? C.red : C.gold,
-                    borderRadius: 50, width: 100, height: 100, alignSelf: "center",
+                    borderRadius: 50, width: 80, height: 80,
                     alignItems: "center", justifyContent: "center",
-                    marginVertical: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+                    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
                     shadowOpacity: 0.2, shadowRadius: 8, elevation: 6,
                   }}
-                  onPress={async () => {
-                    if (dlgPlaying) return;
-                    setDlgPlaying(true);
-                    const result = await ElevenLabs.speechToText();
-                    setDlgPlaying(false);
-                    if (result) {
-                      setDlgInput(result);
-                      // Auto-submit what they said
-                      const response = result.trim() || currentDlgStep.text;
-                      setDialogHistory(h => [...h, { speaker: "You", text: response }]);
-                      addXP(10);
-                      // Check if close to expected
-                      const expected = currentDlgStep.text;
-                      if (response.toLowerCase().replace(/[!?.,"]/g, "") !== expected.toLowerCase().replace(/[!?.,"]/g, "")) {
-                        setDlgFeedbackLoading(true);
-                        try {
-                          const res = await AI.chat(
-                            [{ role: "user", content: `In a German conversation (A1 level), the expected response was "${expected}" (meaning: "${currentDlgStep.translation}"). The student SPOKE and said "${response}". Give brief feedback in 1 sentence: was it correct/acceptable? If close enough, praise them! If not, show what they should say. Be encouraging. Answer in English.` }],
-                            "conversation feedback", "A1"
-                          );
-                          setDlgFeedback(res.text);
-                        } catch { setDlgFeedback(""); }
-                        setDlgFeedbackLoading(false);
-                      } else {
-                        setDlgFeedback("Perfekt! Genau richtig!");
-                      }
-                      setDlgPhase("feedback");
-                      scrollRef.current?.scrollToEnd?.({ animated: true });
-                    }
-                  }}
-                  disabled={dlgPlaying}
+                  onPress={recordAndSend}
                   activeOpacity={0.7}
                 >
-                  <Text style={{ fontSize: 40 }}>{dlgPlaying ? "⏳" : "🎤"}</Text>
+                  <Text style={{ fontSize: 36 }}>{dlgPlaying ? "⏹" : "🎤"}</Text>
                 </TouchableOpacity>
-                <Text style={{ textAlign: "center", fontSize: 14, fontWeight: "700", color: dlgPlaying ? C.red : C.gold }}>
-                  {dlgPlaying ? "Sprich jetzt!" : "Tippe & sprich laut"}
+                <Text style={{ textAlign: "center", fontSize: 13, fontWeight: "700", color: dlgPlaying ? C.red : C.gold, marginTop: 6 }}>
+                  {dlgPlaying ? "Sprich jetzt... Tippe zum Stoppen" : "Tippe & sprich laut"}
                 </Text>
 
-                {/* Listen to example first */}
-                <TouchableOpacity
-                  style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginTop: 12, gap: 6 }}
-                  onPress={() => ElevenLabs.playText(currentDlgStep.text, VOICES.female)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ fontSize: 16 }}>🔊</Text>
-                  <Text style={{ fontSize: 13, color: C.muted }}>Erstmal anhören wie es klingt</Text>
-                </TouchableOpacity>
-
-                {/* Fallback: type if mic doesn't work */}
-                <View style={{ marginTop: 16, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
-                  <Text style={{ fontSize: 11, color: C.muted2, textAlign: "center", marginBottom: 6 }}>Mikrofon geht nicht? Tippe es:</Text>
+                {/* Text fallback */}
+                <View style={{ width: "100%", marginTop: 14, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10 }}>
                   <View style={s.chatInputRow}>
-                    <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Auf Deutsch tippen..." placeholderTextColor={C.muted} onSubmitEditing={handleDlgRespond} returnKeyType="send" />
-                    <TouchableOpacity style={s.sendBtn} onPress={handleDlgRespond} activeOpacity={0.7}>
+                    <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Oder tippe auf Deutsch..." placeholderTextColor={C.muted} onSubmitEditing={sendTextMessage} returnKeyType="send" />
+                    <TouchableOpacity style={s.sendBtn} onPress={sendTextMessage} activeOpacity={0.7}>
                       <Text style={s.sendBtnText}>→</Text>
                     </TouchableOpacity>
                   </View>
@@ -1301,26 +1407,12 @@ export default function LessonScreen() {
               </View>
             )}
 
-            {/* Feedback */}
-            {!dlgDone && dlgPhase === "feedback" && (
-              <View style={{ marginTop: 12 }}>
-                <View style={[s.rateFeedback, { marginBottom: 12 }]}>
-                  <Text style={s.rateFeedbackText}>✅ +10 XP</Text>
-                  {dlgFeedbackLoading && <Text style={{ color: C.muted, marginTop: 6, fontSize: 13 }}>🤖 Checking your response...</Text>}
-                  {dlgFeedback ? <Text style={[s.rateFeedbackText, { marginTop: 6, fontWeight: "400" }]}>{dlgFeedback}</Text> : null}
-                </View>
-                <TouchableOpacity style={s.nextBtn} onPress={advanceAfterFeedback} activeOpacity={0.85}>
-                  <Text style={s.nextBtnText}>Continue →</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
             {/* Done */}
-            {(dlgDone || dlgPhase === "done") && (
+            {dlgDone && (
               <View style={[s.pronComplete, { marginTop: 12 }]}>
                 <Text style={{ fontSize: 40, marginBottom: 8 }}>🎉</Text>
-                <Text style={s.pronCompleteText}>Conversation complete!</Text>
-                <Text style={{ fontSize: 13, color: C.green, marginTop: 4 }}>You talked to {charName} in German!</Text>
+                <Text style={s.pronCompleteText}>Gespräch abgeschlossen!</Text>
+                <Text style={{ fontSize: 13, color: C.green, marginTop: 4 }}>Du hast mit {charName} auf Deutsch gesprochen!</Text>
               </View>
             )}
           </View>
