@@ -302,7 +302,7 @@ export default function LessonScreen() {
           </View>
         );
 
-      // ── 2. LISTEN (Interactive line-by-line) ──
+      // ── 2. LISTEN (Pure listening — just hear the dialog) ──
       case "listen": {
         const dialogLines = card.transcript.split("\n").filter(Boolean).map((line: string) => {
           const [speaker, ...rest] = line.split(":");
@@ -314,92 +314,64 @@ export default function LessonScreen() {
           return rest.join(":").trim();
         });
 
-        // Current line index tracked via dialogStep (reused state)
-        const listenIdx = dialogStep;
-        const currentLine = dialogLines[listenIdx];
-        const allHeard = listenIdx >= dialogLines.length;
-
-        const playLine = async (text: string, speaker: string) => {
+        // Play entire dialog with 2 voices
+        const playFullDialog = async () => {
           setAudioPlaying(true);
-          if (speaker === "You") {
-            await ElevenLabs.playText(text, VOICES.female);
-          } else {
-            await ElevenLabs.playCharacterLine(speaker, text);
+          for (let i = 0; i < dialogLines.length; i++) {
+            const line = dialogLines[i];
+            if (line.speaker === "You") {
+              await ElevenLabs.playText(line.text, VOICES.female);
+            } else {
+              await ElevenLabs.playCharacterLine(line.speaker, line.text);
+            }
+            await new Promise(r => setTimeout(r, 600));
           }
           setAudioPlaying(false);
+          setDialogAnswered(true); // mark as heard
         };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>LISTEN & FOLLOW</Text>
-            <Text style={s.pronSubtitle}>Hear each line, read along, then tap "Next" when you understand.</Text>
+            <Text style={s.label}>ZUHÖREN</Text>
+            <Text style={s.pronSubtitle}>Hör dir das Gespräch an. Lies mit. Danach kommen Fragen!</Text>
 
-            {/* Progress */}
-            <Text style={s.sceneProgress}>Line {Math.min(listenIdx + 1, dialogLines.length)} of {dialogLines.length}</Text>
+            {/* Big play button */}
+            <TouchableOpacity style={s.bigPlayBtn} onPress={playFullDialog} disabled={audioPlaying} activeOpacity={0.7}>
+              <Text style={s.bigPlayIcon}>{audioPlaying ? "🔊" : "▶"}</Text>
+              <Text style={s.bigPlayText}>{audioPlaying ? "Spielt ab..." : dialogAnswered ? "Nochmal anhören" : "Gespräch abspielen"}</Text>
+            </TouchableOpacity>
 
-            {/* Already heard lines */}
+            {/* Dialog as chat bubbles */}
             <View style={s.dialogBox}>
-              {dialogLines.slice(0, listenIdx).map((line: any, i: number) => (
+              {dialogLines.map((line: any, i: number) => (
                 <View key={i} style={line.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
                   <Text style={s.bubbleSpeaker}>{line.speaker}</Text>
                   <Text style={[s.bubbleText, line.speaker === "You" && { color: "#fff" }]}>{line.text}</Text>
-                  <Text style={[s.bubbleTranslation, line.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{transLines[i] || ""}</Text>
+                  {dialogAnswered && <Text style={[s.bubbleTranslation, line.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{transLines[i] || ""}</Text>}
                 </View>
               ))}
             </View>
 
-            {/* Current line — interactive */}
-            {currentLine && !allHeard && (
-              <View style={{ marginTop: 8 }}>
-                <View style={[currentLine.speaker === "You" ? s.bubbleRight : s.bubbleLeft, { borderWidth: 2, borderColor: C.gold }]}>
-                  <Text style={s.bubbleSpeaker}>{currentLine.speaker}</Text>
-                  <Text style={[s.bubbleText, currentLine.speaker === "You" && { color: "#fff" }, { fontSize: 18 }]}>{currentLine.text}</Text>
-                  {dialogAnswered && <Text style={[s.bubbleTranslation, currentLine.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{transLines[listenIdx] || ""}</Text>}
-                </View>
-
-                {/* Listen button */}
-                <TouchableOpacity style={s.bigPlayBtn} onPress={() => { playLine(currentLine.text, currentLine.speaker); setDialogAnswered(true); }} disabled={audioPlaying} activeOpacity={0.7}>
-                  <Text style={s.bigPlayIcon}>{audioPlaying ? "🔊" : "▶"}</Text>
-                  <Text style={s.bigPlayText}>{audioPlaying ? "Playing..." : `Hear "${currentLine.text.slice(0, 20)}${currentLine.text.length > 20 ? "..." : ""}"`}</Text>
-                </TouchableOpacity>
-
-                {/* Show translation button */}
-                {!dialogAnswered && (
-                  <TouchableOpacity style={{ alignItems: "center", marginTop: 8 }} onPress={() => setDialogAnswered(true)}>
-                    <Text style={{ fontSize: 13, color: C.gold }}>Show translation</Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* Next line */}
-                {dialogAnswered && (
-                  <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={() => { setDialogStep(listenIdx + 1); setDialogAnswered(false); addXP(3); scrollRef.current?.scrollToEnd?.({ animated: true }); }}>
-                    <Text style={s.nextBtnText}>{listenIdx < dialogLines.length - 1 ? "Next line →" : "Done listening! →"}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+            {/* Show translation toggle */}
+            {!dialogAnswered && (
+              <TouchableOpacity style={{ alignItems: "center", marginTop: 12 }} onPress={() => setDialogAnswered(true)}>
+                <Text style={{ fontSize: 13, color: C.gold, fontWeight: "600" }}>Übersetzung anzeigen ↓</Text>
+              </TouchableOpacity>
             )}
 
-            {/* All heard */}
-            {allHeard && (
-              <View>
-                <View style={s.pronComplete}>
-                  <Text style={s.pronCompleteText}>You heard the full conversation!</Text>
-                </View>
-                {/* Key words */}
-                {card.highlights && (
-                  <View style={s.keyWordsBox}>
-                    <Text style={s.keyWordsTitle}>KEY WORDS</Text>
-                    {card.highlights.slice(0, 8).map((h: string, i: number) => {
-                      const [de, en] = h.split("::").map((s: string) => s.trim());
-                      return (
-                        <View key={i} style={s.keyWordRow}>
-                          <Text style={s.keyWordDe}>{de}</Text>
-                          <Text style={s.keyWordEn}>{en}</Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
+            {/* Key words (always visible) */}
+            {card.highlights && (
+              <View style={s.keyWordsBox}>
+                <Text style={s.keyWordsTitle}>SCHLÜSSELWÖRTER</Text>
+                {card.highlights.slice(0, 8).map((h: string, i: number) => {
+                  const [de, en] = h.split("::").map((s: string) => s.trim());
+                  return (
+                    <View key={i} style={s.keyWordRow}>
+                      <Text style={s.keyWordDe}>{de}</Text>
+                      <Text style={s.keyWordEn}>{en}</Text>
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
