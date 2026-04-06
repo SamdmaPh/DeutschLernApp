@@ -7,6 +7,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { Progress } from "../../services/progress";
 import { ALL_STATIC_LESSONS } from "../../data/lessonData";
 import { JOURNEY_CITIES, LEVEL_INFO } from "../../data/journeyData";
+import { Avatar, AVATAR_STAGES, type AvatarState } from "../../services/avatar";
 import { C, SAFE_TOP, SERIF } from "../../theme";
 
 const { width: SW } = Dimensions.get("window");
@@ -38,17 +39,22 @@ export default function HomeScreen() {
   const [done, setDone] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [avatarState, setAvatarState] = useState<AvatarState | null>(null);
 
   useFocusEffect(useCallback(() => {
     Progress.getAll().then(p => {
       setXp(p.xp); setStreak(p.streak); setDone(p.done); setName(p.name);
     });
+    Avatar.getState().then(setAvatarState);
   }, []));
 
-  // Current city & character level
+  // Current city & character level (use avatar system)
   const currentCity = JOURNEY_CITIES.find(c => !c.lessonIds.every(id => done.includes(id))) || JOURNEY_CITIES[0];
+  const avatarLevel = Avatar.getAvatarLevel(xp);
+  const avatarEmoji = AVATAR_STAGES[avatarLevel]?.emoji || "🎒";
+  const avatarTitle = AVATAR_STAGES[avatarLevel]?.name || "Backpacker";
   const charLevel = Math.min(Math.floor(done.length / 5), CHARACTER_LEVELS.length - 1);
-  const character = CHARACTER_LEVELS[charLevel];
+  const character = { emoji: avatarEmoji, label: avatarTitle };
 
   // Get current level cities for the board
   const currentLevel = currentCity.level;
@@ -257,8 +263,43 @@ export default function HomeScreen() {
               </View>
             )}
 
+            {/* CHECKPOINT — Boss fight when all lessons done */}
+            {getCityState(selected).complete && (
+              <TouchableOpacity
+                style={{ backgroundColor: C.red, borderRadius: 16, padding: 18, marginTop: 12, alignItems: "center", flexDirection: "row", gap: 12, justifyContent: "center" }}
+                onPress={() => router.push({ pathname: "/checkpoint", params: { cityId: selected.id } })}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 24 }}>⚔️</Text>
+                <View>
+                  <Text style={{ fontSize: 16, fontWeight: "900", color: "#FFF" }}>CHECKPOINT</Text>
+                  <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Beweise dein Können in {selected.name}!</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {/* Items collected in this city */}
+            {avatarState && avatarState.items.length > 0 && (() => {
+              const { ALL_ITEMS: items } = require("../../services/avatar");
+              const cityItems = items.filter((i: any) => i.city === selected.id && avatarState.items.includes(i.id));
+              if (cityItems.length === 0) return null;
+              return (
+                <View style={{ marginTop: 12, backgroundColor: C.goldDim, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.goldLine }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 1.5, marginBottom: 8 }}>GESAMMELTE ITEMS</Text>
+                  <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+                    {cityItems.map((item: any) => (
+                      <View key={item.id} style={{ alignItems: "center", width: 60 }}>
+                        <Text style={{ fontSize: 28 }}>{item.emoji}</Text>
+                        <Text style={{ fontSize: 9, color: C.muted, textAlign: "center", marginTop: 2 }}>{item.name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })()}
+
             <TouchableOpacity style={s.closeBtn} onPress={() => setSelectedCity(null)}>
-              <Text style={s.closeBtnText}>Close</Text>
+              <Text style={s.closeBtnText}>Schließen</Text>
             </TouchableOpacity>
           </View>
         ) : (

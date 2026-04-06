@@ -11,6 +11,8 @@ import { AI, ChatMessage } from "../services/ai";
 import { TTS } from "../services/tts";
 import { ElevenLabs, CHARACTER_VOICES, VOICES } from "../services/elevenlabs";
 import { SRS } from "../services/srs";
+import { Avatar, ALL_ITEMS, AVATAR_STAGES } from "../services/avatar";
+import { getStory } from "../data/storyData";
 import { C, SAFE_TOP, SERIF } from "../theme";
 
 // Cross-platform audio player (not used anymore — ElevenLabs handles playback)
@@ -84,6 +86,7 @@ export default function LessonScreen() {
   }
 
   const img = SITUATION_IMAGES[lesson.id] || "";
+  const story = getStory(lesson.id);
 
   // ═══ HELPER: Add XP ═══
   const addXP = (amount: number) => {
@@ -291,13 +294,29 @@ export default function LessonScreen() {
             {card.image ? (
               <Image source={{ uri: card.image }} style={s.heroImage} resizeMode="cover" />
             ) : (
-              <View style={s.heroPlaceholder}><Text style={{ fontSize: 48 }}>✈️🏛️🚕</Text></View>
+              <View style={s.heroPlaceholder}><Text style={{ fontSize: 48 }}>{story.hookEmoji}</Text></View>
             )}
-            <Text style={s.hookChapter}>CHAPTER {lesson.order_index}</Text>
-            <Text style={s.hookTitle}>{card.title}</Text>
+            <Text style={s.hookChapter}>KAPITEL {lesson.order_index}</Text>
+            <Text style={s.hookTitle}>{lesson.title_de || card.title}</Text>
+
+            {/* Story narration */}
+            <View style={{ backgroundColor: C.card2, borderRadius: 16, padding: 18, marginTop: 16, borderLeftWidth: 4, borderLeftColor: C.gold }}>
+              <Text style={{ fontSize: 15, color: C.text, lineHeight: 24, fontStyle: "italic" }}>{story.hookNarration}</Text>
+            </View>
+
             <View style={s.missionBox}>
-              <Text style={s.missionLabel}>YOUR MISSION</Text>
+              <Text style={s.missionLabel}>DEINE MISSION</Text>
               <Text style={s.missionText}>{card.description}</Text>
+            </View>
+
+            {/* NPC preview */}
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.goldDim, borderRadius: 14, padding: 14, marginTop: 12, gap: 12, borderWidth: 1, borderColor: C.goldLine }}>
+              <Text style={{ fontSize: 32 }}>{story.npcEmoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: C.gold }}>DU TRIFFST:</Text>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }}>{story.npcName}</Text>
+                <Text style={{ fontSize: 13, color: C.muted, fontStyle: "italic", marginTop: 2 }}>"{story.npcGreeting}"</Text>
+              </View>
             </View>
           </View>
         );
@@ -356,8 +375,8 @@ export default function LessonScreen() {
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>ZUHÖREN</Text>
-            <Text style={s.pronSubtitle}>Hör dir das Gespräch an. Lies mit. Danach kommen Fragen!</Text>
+            <Text style={s.label}>2 ZUHÖREN</Text>
+            <Text style={{ fontSize: 14, color: C.text, fontStyle: "italic", lineHeight: 20, marginBottom: 12, paddingHorizontal: 4 }}>{story.listenIntro}</Text>
 
             {/* Big play button */}
             <TouchableOpacity style={s.bigPlayBtn} onPress={playFullDialog} disabled={audioPlaying} activeOpacity={0.7}>
@@ -1517,53 +1536,61 @@ export default function LessonScreen() {
 
       // ── 12. CELEBRATION ──
       case "finish": {
-        const rewards = ["🌭 You earned a Bratwurst!", "🍺 You earned a Berliner Weisse!", "🥨 You earned a Pretzel!", "🧳 Your character got a new suitcase!"];
-        const reward = rewards[lesson.order_index % rewards.length];
-        const nextLessonTitle = ALL_STATIC_LESSONS.find((l: any) => l.order_index === lesson.order_index + 1)?.title;
+        const itemForLesson = ALL_ITEMS.find(i => i.lessonId === lesson.id);
+        const nextLesson = ALL_STATIC_LESSONS.find((l: any) => l.order_index === lesson.order_index + 1);
+        const nextLessonTitle = nextLesson?.title_de || nextLesson?.title;
+
         return (
           <View style={[s.cardInner, { alignItems: "center" }]}>
             <Text style={{ fontSize: 64, marginBottom: 8 }}>🎉</Text>
-            <Text style={s.finishTitle}>Mission Complete!</Text>
-            <Text style={s.finishSub}>{card.title}</Text>
+            <Text style={s.finishTitle}>Mission geschafft!</Text>
+            <Text style={s.finishSub}>{lesson.title_de || card.title}</Text>
+
+            {/* Story outro */}
+            <View style={{ backgroundColor: C.card2, borderRadius: 16, padding: 18, marginTop: 12, borderLeftWidth: 4, borderLeftColor: C.gold, width: "100%" }}>
+              <Text style={{ fontSize: 14, color: C.text, lineHeight: 22, fontStyle: "italic" }}>{story.outroNarration}</Text>
+            </View>
 
             {/* Stats */}
             <View style={s.finishStats}>
-              <View style={s.finishStat}><Text style={s.finishStatNum}>{totalXP + card.xp}</Text><Text style={s.finishStatLabel}>Total XP</Text></View>
-              <View style={s.finishStat}><Text style={s.finishStatNum}>{card.wordsLearned}</Text><Text style={s.finishStatLabel}>Words</Text></View>
-              <View style={s.finishStat}><Text style={s.finishStatNum}>{selfRating > 0 ? `${selfRating}/5` : "—"}</Text><Text style={s.finishStatLabel}>Confidence</Text></View>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{totalXP + card.xp}</Text><Text style={s.finishStatLabel}>XP</Text></View>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{card.wordsLearned}</Text><Text style={s.finishStatLabel}>Wörter</Text></View>
+              <View style={s.finishStat}><Text style={s.finishStatNum}>{selfRating > 0 ? `${selfRating}/5` : "—"}</Text><Text style={s.finishStatLabel}>Sicherheit</Text></View>
             </View>
 
-            {/* Reward */}
-            <View style={s.rewardBox}>
-              <Text style={s.rewardText}>{reward}</Text>
-            </View>
-
-            {/* What XP does */}
-            <View style={s.xpExplain}>
-              <Text style={s.xpExplainTitle}>WHAT YOUR XP DOES:</Text>
-              <Text style={s.xpExplainText}>🗺️ Moves your character across Germany</Text>
-              <Text style={s.xpExplainText}>🌳 Unlocks new skills in your skill tree</Text>
-              <Text style={s.xpExplainText}>🏛️ Opens new cities to explore</Text>
-            </View>
+            {/* Item reward */}
+            {itemForLesson && (
+              <View style={[s.rewardBox, { flexDirection: "row", alignItems: "center", gap: 14 }]}>
+                <Text style={{ fontSize: 40 }}>{itemForLesson.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 1.5 }}>NEUES ITEM!</Text>
+                  <Text style={{ fontSize: 17, fontWeight: "700", color: C.text }}>{itemForLesson.name}</Text>
+                  <Text style={{ fontSize: 13, color: C.muted, marginTop: 2, lineHeight: 18 }}>{itemForLesson.description}</Text>
+                </View>
+              </View>
+            )}
 
             {/* Next mission preview */}
             {nextLessonTitle && (
               <View style={s.nextPreview}>
-                <Text style={s.nextPreviewLabel}>NEXT MISSION:</Text>
+                <Text style={s.nextPreviewLabel}>NÄCHSTE MISSION:</Text>
                 <Text style={s.nextPreviewTitle}>{nextLessonTitle}</Text>
               </View>
             )}
 
             <TouchableOpacity style={s.finishBtn} onPress={async () => {
-              await Progress.addXP(totalXP + card.xp);
+              const totalEarned = totalXP + card.xp;
+              await Progress.addXP(totalEarned);
               await Progress.markComplete(lesson.id);
+              // Avatar system: complete lesson, earn items, progress
+              await Avatar.completeLesson(lesson.id, totalEarned);
               if (lesson.vocabulary?.core) {
                 const words = lesson.vocabulary.core.map((w: string) => { const p = w.split("::"); return { word: p[0]?.trim() || w, meaning: p[1]?.trim() || "" }; });
                 await SRS.addWordsFromLesson(lesson.id, words);
               }
               router.back();
             }}>
-              <Text style={s.finishBtnText}>Continue your journey →</Text>
+              <Text style={s.finishBtnText}>Weiter auf deiner Reise →</Text>
             </TouchableOpacity>
           </View>
         );
