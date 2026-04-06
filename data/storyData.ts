@@ -6,6 +6,7 @@ export interface LessonStory {
   // Phase 1: Hook — cinematic intro
   hookNarration: string;      // Erzähler-Text (atmosphärisch)
   hookEmoji: string;          // Situation-Emoji
+  hookVideo?: string;         // Pexels video URL (mp4)
   // Zwischentexte zwischen Phasen
   listenIntro: string;        // Vor Phase 2
   checkIntro: string;         // Vor Phase 3
@@ -25,6 +26,7 @@ export const STORY_DATA: Record<string, LessonStory> = {
     lessonId: "a1-0-1",
     hookNarration: "Das Flugzeug ist gelandet. Du stehst am Flughafen Berlin Brandenburg — allein, mit einem Koffer und null Deutschkenntnissen. Draußen warten die Taxis. Deine Mission: finde ein Taxi und komm zum Hostel. Los geht's!",
     hookEmoji: "✈️",
+    hookVideo: "https://videos.pexels.com/video-files/2029036/2029036-sd_640_360_30fps.mp4",
     listenIntro: "Ein Taxifahrer winkt dir zu. Er sagt etwas auf Deutsch. Hör genau zu — was sagt er?",
     checkIntro: "Hast du alles verstanden? Mal sehen...",
     practiceIntro: "Jetzt bist du dran. Übe die Wörter die du gerade gehört hast.",
@@ -39,6 +41,7 @@ export const STORY_DATA: Record<string, LessonStory> = {
     lessonId: "a1-0-2",
     hookNarration: "Das Taxi hält vor einem alten Gebäude in Berlin-Mitte. 'Hostel Berlin' steht über der Tür. Du ziehst deinen Koffer die Stufen hoch. An der Rezeption wartet jemand. Dein nächstes Gespräch auf Deutsch.",
     hookEmoji: "🏨",
+    hookVideo: "https://videos.pexels.com/video-files/4995888/4995888-sd_640_360_25fps.mp4",
     listenIntro: "Die Rezeptionistin spricht mit dir. Sie will deinen Namen und deine Reservierung. Hör zu!",
     checkIntro: "Was hat sie gesagt? Teste dein Verständnis.",
     practiceIntro: "Du brauchst diese Wörter für jedes Hotel in Deutschland. Übe sie!",
@@ -53,6 +56,7 @@ export const STORY_DATA: Record<string, LessonStory> = {
     lessonId: "a1-1-1",
     hookNarration: "Morgens in Berlin. Dein Magen knurrt. Du gehst die Straße runter und findest ein kleines Café an der Ecke. Der Duft von frischem Kaffee und Croissants zieht dich rein. Zeit für dein erstes deutsches Frühstück!",
     hookEmoji: "☕",
+    hookVideo: "https://videos.pexels.com/video-files/3209211/3209211-sd_640_360_25fps.mp4",
     listenIntro: "Die Kellnerin kommt an deinen Tisch. Was sagt sie? Was steht auf der Karte?",
     checkIntro: "Hast du die Bestellung verstanden?",
     practiceIntro: "Bestellen auf Deutsch — das brauchst du jeden Tag!",
@@ -67,6 +71,7 @@ export const STORY_DATA: Record<string, LessonStory> = {
     lessonId: "a1-1-2",
     hookNarration: "Der Kühlschrank im Hostel ist leer. Du brauchst Essen. Auf der Karte findest du einen Supermarkt: REWE, 5 Minuten zu Fuß. Du nimmst deinen Rucksack und gehst los. Im Supermarkt ist alles auf Deutsch — Schilder, Preise, Durchsagen.",
     hookEmoji: "🛒",
+    hookVideo: "https://videos.pexels.com/video-files/3191572/3191572-sd_640_360_25fps.mp4",
     listenIntro: "An der Kasse spricht jemand mit dir. Was sagt die Kassiererin?",
     checkIntro: "Hast du alles verstanden was an der Kasse passiert ist?",
     practiceIntro: "Einkaufen auf Deutsch — Preise, Mengen, Höflichkeit.",
@@ -81,6 +86,7 @@ export const STORY_DATA: Record<string, LessonStory> = {
     lessonId: "a1-1-3",
     hookNarration: "Berlin ist geschafft — Zeit für die nächste Stadt! Du stehst am Hauptbahnhof. Dein Zug nach Hamburg fährt in 30 Minuten. Aber zuerst brauchst du ein Ticket. Und wo ist Gleis 7?",
     hookEmoji: "🚂",
+    hookVideo: "https://videos.pexels.com/video-files/5765320/5765320-sd_640_360_30fps.mp4",
     listenIntro: "Am Ticketschalter erklärt dir jemand die Verbindung. Hör genau zu!",
     checkIntro: "Wann fährt der Zug? Von welchem Gleis? Teste dein Verständnis.",
     practiceIntro: "Fahrplan, Gleis, Abfahrt — die wichtigsten Wörter am Bahnhof.",

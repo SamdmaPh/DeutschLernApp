@@ -288,38 +288,69 @@ export default function LessonScreen() {
     switch (card.type) {
 
       // ── 1. HOOK ──
-      case "hook":
+      case "hook": {
+        const VideoComponent = story.hookVideo ? (() => {
+          try { const { Video, ResizeMode } = require("expo-av"); return { Video, ResizeMode }; } catch { return null; }
+        })() : null;
+
         return (
           <View style={s.cardInner}>
-            {card.image ? (
-              <Image source={{ uri: card.image }} style={s.heroImage} resizeMode="cover" />
+            {/* Video or Image background */}
+            {story.hookVideo && VideoComponent ? (
+              <View style={{ borderRadius: 20, overflow: "hidden", marginBottom: 4 }}>
+                <VideoComponent.Video
+                  source={{ uri: story.hookVideo }}
+                  style={{ width: "100%", height: 220, borderRadius: 20 }}
+                  resizeMode={VideoComponent.ResizeMode?.COVER || "cover"}
+                  shouldPlay
+                  isLooping
+                  isMuted={false}
+                />
+                {/* Dark overlay with chapter title */}
+                <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: "rgba(0,0,0,0.6)" }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 3 }}>KAPITEL {lesson.order_index}</Text>
+                  <Text style={{ fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: "#FFF", marginTop: 4 }}>{lesson.title_de || card.title}</Text>
+                </View>
+              </View>
+            ) : card.image ? (
+              <View style={{ borderRadius: 20, overflow: "hidden", marginBottom: 4 }}>
+                <Image source={{ uri: card.image }} style={s.heroImage} resizeMode="cover" />
+                <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: "rgba(0,0,0,0.6)" }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 3 }}>KAPITEL {lesson.order_index}</Text>
+                  <Text style={{ fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: "#FFF", marginTop: 4 }}>{lesson.title_de || card.title}</Text>
+                </View>
+              </View>
             ) : (
-              <View style={s.heroPlaceholder}><Text style={{ fontSize: 48 }}>{story.hookEmoji}</Text></View>
+              <View>
+                <View style={s.heroPlaceholder}><Text style={{ fontSize: 64 }}>{story.hookEmoji}</Text></View>
+                <Text style={s.hookChapter}>KAPITEL {lesson.order_index}</Text>
+                <Text style={s.hookTitle}>{lesson.title_de || card.title}</Text>
+              </View>
             )}
-            <Text style={s.hookChapter}>KAPITEL {lesson.order_index}</Text>
-            <Text style={s.hookTitle}>{lesson.title_de || card.title}</Text>
 
-            {/* Story narration */}
-            <View style={{ backgroundColor: C.card2, borderRadius: 16, padding: 18, marginTop: 16, borderLeftWidth: 4, borderLeftColor: C.gold }}>
-              <Text style={{ fontSize: 15, color: C.text, lineHeight: 24, fontStyle: "italic" }}>{story.hookNarration}</Text>
+            {/* Story narration — the immersive text */}
+            <View style={{ backgroundColor: "#1C1C2E", borderRadius: 16, padding: 20, marginTop: 16 }}>
+              <Text style={{ fontSize: 16, color: "#E2E8F0", lineHeight: 26, fontStyle: "italic" }}>{story.hookNarration}</Text>
             </View>
 
-            <View style={s.missionBox}>
+            {/* NPC preview — who you'll meet */}
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.goldDim, borderRadius: 14, padding: 16, marginTop: 14, gap: 14, borderWidth: 1, borderColor: C.goldLine }}>
+              <Text style={{ fontSize: 36 }}>{story.npcEmoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 1.5 }}>DU TRIFFST</Text>
+                <Text style={{ fontSize: 18, fontWeight: "700", color: C.text, marginTop: 2 }}>{story.npcName}</Text>
+                <Text style={{ fontSize: 14, color: C.muted, fontStyle: "italic", marginTop: 4 }}>"{story.npcGreeting}"</Text>
+              </View>
+            </View>
+
+            {/* Mission */}
+            <View style={[s.missionBox, { marginTop: 14 }]}>
               <Text style={s.missionLabel}>DEINE MISSION</Text>
               <Text style={s.missionText}>{card.description}</Text>
             </View>
-
-            {/* NPC preview */}
-            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: C.goldDim, borderRadius: 14, padding: 14, marginTop: 12, gap: 12, borderWidth: 1, borderColor: C.goldLine }}>
-              <Text style={{ fontSize: 32 }}>{story.npcEmoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 13, fontWeight: "700", color: C.gold }}>DU TRIFFST:</Text>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }}>{story.npcName}</Text>
-                <Text style={{ fontSize: 13, color: C.muted, fontStyle: "italic", marginTop: 2 }}>"{story.npcGreeting}"</Text>
-              </View>
-            </View>
           </View>
         );
+      }
 
       // ── 2. LISTEN (Pure listening — just hear the dialog) ──
       case "listen": {
@@ -1600,15 +1631,28 @@ export default function LessonScreen() {
     }
   };
 
-  // Phase names for the navigation bar
-  const PHASE_NAMES = ["1 Start", "2 Hören", "3 Verstehen", "4 Zuordnen", "5 Aussprache", "6 Ergänzen", "7 Grammatik", "8 Vokabeln", "9 Satzbau", "10 Schreiben", "11 Sprechen", "12 Bewertung", "13 Geschafft"];
+  // Story transition texts between exercises
+  const STORY_TRANSITIONS: Record<string, string> = {
+    listen: story.listenIntro,
+    comprehensionMulti: story.checkIntro,
+    match: "Verbinde die Wörter die du gerade gelernt hast.",
+    pronunciation: story.practiceIntro,
+    useIt: "Jetzt benutze die Wörter in echten Sätzen.",
+    grammar: "Schau dir die Regeln an — sie helfen dir beim nächsten Gespräch.",
+    vocab: "Präge dir diese Wörter ein — du wirst sie gleich brauchen!",
+    wordOrderMulti: "Baue die Sätze zusammen — wie ein Puzzle.",
+    write: "Zeig was du gelernt hast — schreib es auf!",
+    dialog: story.speakIntro,
+    selfrate: "",
+    finish: "",
+  };
 
   return (
     <View style={s.root}>
       <StatusBar barStyle="dark-content" />
       <View style={{ height: SAFE_TOP }} />
 
-      {/* ═══ TOP BAR: Close + XP ═══ */}
+      {/* ═══ TOP BAR: Minimal — just close + progress + XP ═══ */}
       <View style={s.topRow}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Text style={s.closeBtn}>✕</Text>
@@ -1617,28 +1661,16 @@ export default function LessonScreen() {
         <View style={s.xpBadge}><Text style={s.xpBadgeText}>⚡{totalXP}</Text></View>
       </View>
 
-      {/* ═══ MODERN PHASE INDICATOR ═══ */}
-      <View style={s.phaseNav}>
-        {/* Dots */}
-        <View style={s.phaseDotsRow}>
-          {CARD_LABELS.slice(0, total).map((_, i) => (
-            <TouchableOpacity key={i} onPress={() => goToCard(i)} activeOpacity={0.6}
-              style={[s.phaseNavDot, i < step && s.phaseNavDotDone, i === step && s.phaseNavDotActive]}
-            />
-          ))}
-        </View>
-        {/* Label */}
-        <View style={s.phaseNavLabel}>
-          <Text style={s.phaseNavEmoji}>{CARD_LABELS[step]}</Text>
-          <Text style={s.phaseNavText}>{PHASE_NAMES[step]}</Text>
-          <Text style={s.phaseNavCount}>{step + 1}/{total}</Text>
-        </View>
-      </View>
-
       {lastXP > 0 && <XPPopup amount={lastXP} />}
 
-      {/* ═══ CONTENT ═══ */}
+      {/* ═══ CONTENT with story transition ═══ */}
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
+        {/* Story transition narration (shown before exercise, not for hook/finish) */}
+        {card && !["hook", "finish", "selfrate"].includes(card.type) && STORY_TRANSITIONS[card.type] && (
+          <View style={{ backgroundColor: C.card2, borderRadius: 14, padding: 16, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: C.gold }}>
+            <Text style={{ fontSize: 14, color: C.text, lineHeight: 22, fontStyle: "italic" }}>{STORY_TRANSITIONS[card.type]}</Text>
+          </View>
+        )}
         {renderCard()}
       </ScrollView>
 
