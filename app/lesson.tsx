@@ -352,88 +352,89 @@ export default function LessonScreen() {
         );
       }
 
-      // ── 2. LISTEN (Pure listening — just hear the dialog) ──
+      // ── 2. LISTEN (Einführungstext — reines Zuhören, kein Dialog) ──
       case "listen": {
-        const dialogLines = card.transcript.split("\n").filter(Boolean).map((line: string) => {
+        // Combine transcript into flowing text (not chat bubbles)
+        const fullText = card.transcript.split("\n").filter(Boolean).map((line: string) => {
           const [speaker, ...rest] = line.split(":");
-          return { speaker: speaker.trim(), text: rest.join(":").trim() };
-        }).filter((l: any) => l.text);
+          const text = rest.join(":").trim();
+          return text || line;
+        }).join(" ");
 
-        const transLines = (card.translation || "").split("\n").filter(Boolean).map((line: string) => {
+        const fullTranslation = card.translation?.split("\n").filter(Boolean).map((line: string) => {
           const [, ...rest] = line.split(":");
-          return rest.join(":").trim();
-        });
+          return rest.join(":").trim() || line;
+        }).join(" ") || "";
 
         const BACKEND_URL = "https://deutschlernappbackend2-production.up.railway.app";
 
-        // Play dialog line-by-line with 2 voices (male NPC, female You)
-        const playFullDialog = async () => {
+        // Play the full text as one audio piece
+        const playListening = async () => {
           setAudioPlaying(true);
-          for (let i = 0; i < dialogLines.length; i++) {
-            const voice = dialogLines[i].speaker === "You" ? "female" : "male";
-            try {
-              const res = await fetch(`${BACKEND_URL}/api/speak`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: dialogLines[i].text, voice }),
-              });
-              const data = await res.json();
-              if (data.audio) {
-                const AudioModule = await import("expo-av");
-                await AudioModule.Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
-                const { sound } = await AudioModule.Audio.Sound.createAsync(
-                  { uri: `data:audio/mpeg;base64,${data.audio}` },
-                  { shouldPlay: true }
-                );
-                // Wait for playback to finish
-                await new Promise<void>(resolve => {
-                  sound.setOnPlaybackStatusUpdate(status => {
-                    if (status.isLoaded && status.didJustFinish) { sound.unloadAsync(); resolve(); }
-                  });
-                  // Timeout fallback
-                  setTimeout(() => { sound.unloadAsync(); resolve(); }, 5000);
+          try {
+            const res = await fetch(`${BACKEND_URL}/api/speak`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: fullText, voice: "male" }),
+            });
+            const data = await res.json();
+            if (data.audio) {
+              const AudioModule = await import("expo-av");
+              await AudioModule.Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
+              const { sound } = await AudioModule.Audio.Sound.createAsync(
+                { uri: `data:audio/mpeg;base64,${data.audio}` },
+                { shouldPlay: true }
+              );
+              await new Promise<void>(resolve => {
+                sound.setOnPlaybackStatusUpdate(status => {
+                  if (status.isLoaded && status.didJustFinish) { sound.unloadAsync(); resolve(); }
                 });
-              }
-            } catch {
-              // Fallback: just pause between lines
-              await new Promise(r => setTimeout(r, 1500));
+                setTimeout(() => { sound.unloadAsync(); resolve(); }, 15000);
+              });
             }
-            await new Promise(r => setTimeout(r, 400));
-          }
+          } catch {}
           setAudioPlaying(false);
           setDialogAnswered(true);
         };
 
         return (
           <View style={s.cardInner}>
-            <Text style={s.label}>2 ZUHÖREN</Text>
-            <Text style={{ fontSize: 14, color: C.text, fontStyle: "italic", lineHeight: 20, marginBottom: 12, paddingHorizontal: 4 }}>{story.listenIntro}</Text>
+            {/* Big listening card — dark, immersive */}
+            <View style={{ backgroundColor: "#1C1C2E", borderRadius: 20, padding: 24, marginBottom: 16 }}>
+              <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 12 }}>🎧 HÖRTEXT</Text>
 
-            {/* Big play button */}
-            <TouchableOpacity style={s.bigPlayBtn} onPress={playFullDialog} disabled={audioPlaying} activeOpacity={0.7}>
-              <Text style={s.bigPlayIcon}>{audioPlaying ? "🔊" : "▶"}</Text>
-              <Text style={s.bigPlayText}>{audioPlaying ? "Spielt ab..." : dialogAnswered ? "Nochmal anhören" : "Gespräch abspielen"}</Text>
-            </TouchableOpacity>
+              {/* Play button */}
+              <TouchableOpacity
+                style={{ backgroundColor: audioPlaying ? "rgba(255,255,255,0.1)" : C.gold, borderRadius: 16, padding: 18, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 12, marginBottom: 20 }}
+                onPress={playListening} disabled={audioPlaying} activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 24 }}>{audioPlaying ? "🔊" : "▶️"}</Text>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: audioPlaying ? "#FFF" : "#1C1C2E" }}>
+                  {audioPlaying ? "Hör zu..." : dialogAnswered ? "Nochmal anhören" : "Text anhören"}
+                </Text>
+              </TouchableOpacity>
 
-            {/* Dialog as chat bubbles */}
-            <View style={s.dialogBox}>
-              {dialogLines.map((line: any, i: number) => (
-                <View key={i} style={line.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
-                  <Text style={s.bubbleSpeaker}>{line.speaker}</Text>
-                  <Text style={[s.bubbleText, line.speaker === "You" && { color: "#fff" }]}>{line.text}</Text>
-                  {dialogAnswered && <Text style={[s.bubbleTranslation, line.speaker === "You" && { color: "rgba(255,255,255,0.7)" }]}>{transLines[i] || ""}</Text>}
+              {/* German text */}
+              <Text style={{ fontSize: 17, color: "#E2E8F0", lineHeight: 28, fontStyle: "italic" }}>
+                {fullText}
+              </Text>
+
+              {/* Translation (toggle) */}
+              {dialogAnswered ? (
+                <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.1)" }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: "rgba(255,255,255,0.4)", letterSpacing: 1.5, marginBottom: 6 }}>ÜBERSETZUNG</Text>
+                  <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", lineHeight: 22 }}>
+                    {fullTranslation}
+                  </Text>
                 </View>
-              ))}
+              ) : (
+                <TouchableOpacity style={{ marginTop: 16, alignItems: "center" }} onPress={() => setDialogAnswered(true)}>
+                  <Text style={{ fontSize: 13, color: C.gold }}>Übersetzung anzeigen</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Show translation toggle */}
-            {!dialogAnswered && (
-              <TouchableOpacity style={{ alignItems: "center", marginTop: 12 }} onPress={() => setDialogAnswered(true)}>
-                <Text style={{ fontSize: 13, color: C.gold, fontWeight: "600" }}>Übersetzung anzeigen ↓</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Key words (always visible) */}
+            {/* Key words */}
             {card.highlights && (
               <View style={s.keyWordsBox}>
                 <Text style={s.keyWordsTitle}>SCHLÜSSELWÖRTER</Text>
