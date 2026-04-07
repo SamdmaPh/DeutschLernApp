@@ -8,7 +8,7 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
     <View style={styles.tabIcon}>
       <Text style={[styles.emoji, focused && styles.emojiFocused]}>{emoji}</Text>
-      {focused && <View style={styles.activeIndicator} />}
+      {focused && <View style={styles.dot} />}
     </View>
   );
 }
@@ -19,7 +19,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: C.bg,
+          backgroundColor: C.card,
           borderTopWidth: 1,
           borderTopColor: C.border,
           height: Platform.OS === "ios" ? 84 : isWeb ? 64 : 60,
@@ -30,18 +30,14 @@ export default function TabLayout() {
         },
         tabBarActiveTintColor: C.gold,
         tabBarInactiveTintColor: C.muted,
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "700",
-          marginTop: 0,
-        },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: "700" },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: "Karte",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🗺️" focused={focused} />,
+          title: "Heute",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="📖" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -52,17 +48,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="journey"
-        options={{
-          title: "Reise",
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏛️" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
         name="library"
         options={{
           title: "Bibliothek",
           tabBarIcon: ({ focused }) => <TabIcon emoji="📚" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="journey"
+        options={{
+          title: "Profil",
+          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
         }}
       />
     </Tabs>
@@ -73,5 +69,5 @@ const styles = StyleSheet.create({
   tabIcon: { alignItems: "center", justifyContent: "center" },
   emoji: { fontSize: 22, opacity: 0.5 },
   emojiFocused: { opacity: 1, fontSize: 24 },
-  activeIndicator: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.gold, marginTop: 3 },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.gold, marginTop: 3 },
 });

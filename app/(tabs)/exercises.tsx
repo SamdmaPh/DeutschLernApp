@@ -1,27 +1,32 @@
 import { useState, useCallback } from "react";
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
-import { ALL_STATIC_LESSONS } from "../../data/lessonData";
-import { LEVEL_INFO } from "../../data/journeyData";
 import { Progress } from "../../services/progress";
+import { ALL_STATIC_LESSONS } from "../../data/lessonData";
+import { JOURNEY_CITIES } from "../../data/journeyData";
 import { C, SAFE_TOP, SERIF } from "../../theme";
 
-export default function ExercisesScreen() {
+const CONVERSATION_TOPICS = [
+  { id: "cafe", emoji: "☕", title: "Im Café", desc: "Bestelle Kaffee und Kuchen" },
+  { id: "taxi", emoji: "🚕", title: "Im Taxi", desc: "Sag dem Fahrer wohin" },
+  { id: "supermarkt", emoji: "🛒", title: "Im Supermarkt", desc: "Kaufe ein und bezahle" },
+  { id: "hotel", emoji: "🏨", title: "Im Hotel", desc: "Check ein, frag nach WLAN" },
+  { id: "bahnhof", emoji: "🚂", title: "Am Bahnhof", desc: "Kaufe eine Fahrkarte" },
+  { id: "arzt", emoji: "🏥", title: "Beim Arzt", desc: "Beschreibe Symptome" },
+];
+
+export default function UebenScreen() {
   const router = useRouter();
   const [done, setDone] = useState<string[]>([]);
-  const [activeLevel, setActiveLevel] = useState("A1");
 
   useFocusEffect(useCallback(() => {
-    Progress.getAll().then(p => setDone(p.done || []));
+    Progress.getCompleted().then(setDone);
   }, []));
 
-  const levels = ["A1", "A2", "B1", "B2", "C1", "C2"];
-  const lessons = ALL_STATIC_LESSONS.filter(l => l.level === activeLevel).sort((a, b) => a.order_index - b.order_index);
-  const sublevels = [...new Set(lessons.map(l => l.sublevel))];
-  const info = LEVEL_INFO[activeLevel];
+  const cities = JOURNEY_CITIES.filter(c => c.level === "A1" || c.level === "A2");
 
   return (
-    <View style={s.container}>
+    <View style={s.root}>
       <StatusBar barStyle="dark-content" />
       <View style={{ height: SAFE_TOP }} />
       <View style={s.flagStrip}>
@@ -32,80 +37,93 @@ export default function ExercisesScreen() {
 
       <View style={s.header}>
         <Text style={s.title}>Üben</Text>
-        <Text style={s.subtitle}>Alle Lektionen & Übungen</Text>
+        <Text style={s.subtitle}>Gespräche, Lektionen und Wiederholung</Text>
       </View>
 
-      {/* Level tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabs}>
-        {levels.map(lv => {
-          const lvInfo = LEVEL_INFO[lv];
-          const active = lv === activeLevel;
-          const lvDone = ALL_STATIC_LESSONS.filter(l => l.level === lv && done.includes(l.id)).length;
-          const lvTotal = ALL_STATIC_LESSONS.filter(l => l.level === lv).length;
-          return (
-            <TouchableOpacity
-              key={lv} activeOpacity={0.7}
-              style={[s.tab, active && { backgroundColor: lvInfo.color + "15", borderColor: lvInfo.color }]}
-              onPress={() => setActiveLevel(lv)}
-            >
-              <Text style={[s.tabText, active && { color: lvInfo.color }]}>{lv}</Text>
-              <Text style={[s.tabCount, active && { color: lvInfo.color }]}>{lvDone}/{lvTotal}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
-        {sublevels.map(sublevel => {
-          const subs = lessons.filter(l => l.sublevel === sublevel);
+
+        {/* Live-Gespräch */}
+        <Text style={s.sectionLabel}>LIVE-GESPRÄCH</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 24 }}>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {CONVERSATION_TOPICS.map(topic => (
+              <TouchableOpacity key={topic.id} style={s.topicCard} onPress={() => router.push("/conversation")} activeOpacity={0.8}>
+                <Text style={{ fontSize: 28 }}>{topic.emoji}</Text>
+                <Text style={s.topicTitle}>{topic.title}</Text>
+                <Text style={s.topicDesc}>{topic.desc}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Vokabel-Review */}
+        <TouchableOpacity style={s.reviewCard} onPress={() => router.push("/review")} activeOpacity={0.8}>
+          <Text style={{ fontSize: 24 }}>🔄</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.reviewTitle}>Vokabel-Wiederholung</Text>
+            <Text style={s.reviewSub}>Spaced Repetition · Gelernte Wörter festigen</Text>
+          </View>
+          <Text style={{ fontSize: 18, color: C.gold }}>→</Text>
+        </TouchableOpacity>
+
+        {/* Alle Lektionen */}
+        <Text style={s.sectionLabel}>ALLE LEKTIONEN</Text>
+        {cities.map(city => {
+          const lessons = ALL_STATIC_LESSONS.filter((l: any) => city.lessonIds.includes(l.id)).sort((a: any, b: any) => a.order_index - b.order_index);
+          const completed = city.lessonIds.filter(id => done.includes(id)).length;
           return (
-            <View key={sublevel} style={s.group}>
-              <Text style={[s.groupLabel, { color: info?.color }]}>{sublevel}</Text>
-              {subs.map(lesson => {
+            <View key={city.id} style={s.citySection}>
+              <View style={s.cityHeader}>
+                <Text style={{ fontSize: 20 }}>{city.emoji}</Text>
+                <Text style={s.cityName}>{city.name}</Text>
+                <Text style={s.cityCount}>{completed}/{city.lessonIds.length}</Text>
+              </View>
+              {lessons.map((lesson: any) => {
                 const isDone = done.includes(lesson.id);
                 return (
-                  <TouchableOpacity
-                    key={lesson.id}
-                    style={[s.lessonCard, isDone && { borderLeftColor: info?.color, borderLeftWidth: 3 }]}
-                    onPress={() => router.push({ pathname: "/lesson", params: { lessonId: lesson.id } })}
-                    activeOpacity={0.7}
-                  >
-                    <View style={s.lessonNum}>
-                      <Text style={[s.lessonNumText, isDone && { color: info?.color }]}>{lesson.order_index}</Text>
-                    </View>
+                  <TouchableOpacity key={lesson.id} style={[s.lessonRow, isDone && s.lessonRowDone]} onPress={() => router.push({ pathname: "/lesson", params: { lessonId: lesson.id } })} activeOpacity={0.7}>
+                    <View style={[s.lessonDot, isDone && s.lessonDotDone]}>{isDone && <Text style={{ fontSize: 10, color: "#FFF" }}>✓</Text>}</View>
                     <View style={{ flex: 1 }}>
-                      <Text style={s.lessonTitle}>{lesson.title}</Text>
-                      <Text style={s.lessonMeta}>{lesson.duration} min · +{lesson.xp_reward} XP</Text>
+                      <Text style={[s.lessonTitle, isDone && { color: C.muted }]}>{lesson.title_de || lesson.title}</Text>
+                      <Text style={s.lessonSub} numberOfLines={1}>{lesson.description}</Text>
                     </View>
-                    {isDone ? <Text>✅</Text> : <Text style={{ color: C.muted }}>→</Text>}
+                    <Text style={s.lessonXP}>+{lesson.xp_reward || 50}</Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
           );
         })}
+        <View style={{ height: 30 }} />
       </ScrollView>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  root: { flex: 1, backgroundColor: C.bg },
   flagStrip: { flexDirection: "row", height: 3 },
   flag: { flex: 1 },
   header: { paddingHorizontal: 24, paddingTop: 14, paddingBottom: 8 },
   title: { fontFamily: SERIF, fontSize: 28, fontWeight: "700", color: C.text },
   subtitle: { fontSize: 13, color: C.muted, marginTop: 4 },
-  tabs: { paddingHorizontal: 20, gap: 8, paddingBottom: 4 },
-  tab: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: C.border, backgroundColor: C.card },
-  tabText: { fontSize: 14, fontWeight: "800", color: C.muted, textAlign: "center" },
-  tabCount: { fontSize: 10, color: C.muted, textAlign: "center", marginTop: 2 },
-  scroll: { padding: 20, paddingBottom: 100 },
-  group: { marginBottom: 20 },
-  groupLabel: { fontSize: 12, fontWeight: "900", letterSpacing: 2, marginBottom: 10 },
-  lessonCard: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 8, gap: 14 },
-  lessonNum: { width: 36, height: 36, borderRadius: 10, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
-  lessonNumText: { fontSize: 14, fontWeight: "800", color: C.muted },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  sectionLabel: { fontSize: 10, fontWeight: "900", color: C.muted, letterSpacing: 2, marginBottom: 12, marginTop: 8 },
+  topicCard: { width: 130, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 16, gap: 6, alignItems: "center" },
+  topicTitle: { fontSize: 13, fontWeight: "700", color: C.text, textAlign: "center" },
+  topicDesc: { fontSize: 11, color: C.muted, textAlign: "center" },
+  reviewCard: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 24, gap: 12, borderWidth: 1, borderColor: C.border },
+  reviewTitle: { fontSize: 15, fontWeight: "700", color: C.text },
+  reviewSub: { fontSize: 12, color: C.muted, marginTop: 2 },
+  citySection: { marginBottom: 20 },
+  cityHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  cityName: { fontSize: 16, fontWeight: "800", color: C.text, flex: 1 },
+  cityCount: { fontSize: 12, fontWeight: "700", color: C.muted },
+  lessonRow: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: C.border },
+  lessonRowDone: { borderColor: C.greenLine },
+  lessonDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  lessonDotDone: { backgroundColor: C.green, borderColor: C.green },
   lessonTitle: { fontSize: 15, fontWeight: "700", color: C.text },
-  lessonMeta: { fontSize: 12, color: C.muted, marginTop: 3 },
+  lessonSub: { fontSize: 12, color: C.muted, marginTop: 2 },
+  lessonXP: { fontSize: 12, fontWeight: "800", color: C.gold },
 });
