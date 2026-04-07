@@ -8,6 +8,7 @@ import { Progress } from "../../services/progress";
 import { ALL_STATIC_LESSONS } from "../../data/lessonData";
 import { JOURNEY_CITIES, LEVEL_INFO } from "../../data/journeyData";
 import { Avatar, AVATAR_STAGES, ALL_ITEMS, type AvatarState } from "../../services/avatar";
+import { getWordOfTheDay } from "../../data/vocabData";
 import { C, SAFE_TOP, SAFE_BOTTOM, SERIF } from "../../theme";
 
 const { width: SW } = Dimensions.get("window");
@@ -27,7 +28,7 @@ export default function HomeScreen() {
     Avatar.getState().then(setAvatarState);
   }, []));
 
-  // Derived state
+  // Derived
   const avatarLevel = Avatar.getAvatarLevel(xp);
   const avatarEmoji = AVATAR_STAGES[avatarLevel]?.emoji || "🧑‍🎒";
   const avatarTitle = AVATAR_STAGES[avatarLevel]?.name || "Backpacker";
@@ -41,123 +42,164 @@ export default function HomeScreen() {
   const nextLesson = ALL_STATIC_LESSONS
     .filter((l: any) => currentCity.lessonIds.includes(l.id))
     .sort((a: any, b: any) => a.order_index - b.order_index)
-    .find((l: any) => !done.includes(l.id));
+    .find((l: any) => !done.includes(l.id)) as any;
   const cityDone = currentCity.lessonIds.filter(id => done.includes(id)).length;
   const cityTotal = currentCity.lessonIds.length;
 
+  // Wort des Tages
+  const wotd = getWordOfTheDay();
+
   return (
     <View style={s.root}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <View style={{ height: SAFE_TOP }} />
 
-      {/* ── German flag strip (subtle, 3px) ── */}
+      {/* ── Flag strip ── */}
       <View style={s.flagStrip}>
-        <View style={[s.flagBar, { backgroundColor: "#1A1A1A" }]} />
-        <View style={[s.flagBar, { backgroundColor: C.red }]} />
-        <View style={[s.flagBar, { backgroundColor: C.gold }]} />
+        <View style={[s.flagBar, { backgroundColor: C.flagBlack }]} />
+        <View style={[s.flagBar, { backgroundColor: C.flagRed }]} />
+        <View style={[s.flagBar, { backgroundColor: C.flagGold }]} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-        {/* ══ TOP: Avatar + Stats HUD ══ */}
-        <View style={s.hud}>
-          <View style={s.hudLeft}>
-            {/* Avatar ring */}
-            <View style={s.avatarRing}>
-              <Text style={s.avatarEmoji}>{avatarEmoji}</Text>
-            </View>
-            <View>
-              <Text style={s.hudName}>{name || "Reisender"}</Text>
-              <Text style={s.hudTitle}>{avatarTitle}</Text>
-            </View>
+        {/* ══ HEADER: Greeting + Avatar + Stats ══ */}
+        <View style={s.header}>
+          <View style={s.headerLeft}>
+            <Text style={s.greeting}>
+              {new Date().getHours() < 12 ? "Guten Morgen" : new Date().getHours() < 18 ? "Guten Tag" : "Guten Abend"}
+            </Text>
+            <Text style={s.userName}>{name || "Reisender"} {avatarEmoji}</Text>
           </View>
-          <View style={s.hudRight}>
-            <View style={s.statPill}>
-              <Text style={s.statText}>🔥 {streak}</Text>
+          <View style={s.headerRight}>
+            <View style={[s.statBadge, { backgroundColor: C.redDim }]}>
+              <Text style={[s.statBadgeText, { color: C.red }]}>🔥 {streak}</Text>
             </View>
-            <View style={[s.statPill, { backgroundColor: C.goldDim }]}>
-              <Text style={[s.statText, { color: C.gold }]}>⚡ {xp}</Text>
+            <View style={[s.statBadge, { backgroundColor: C.goldDim }]}>
+              <Text style={[s.statBadgeText, { color: C.gold }]}>⚡ {xp}</Text>
             </View>
           </View>
         </View>
 
-        {/* ══ CITY PATH (vertical journey) ══ */}
-        <View style={s.pathSection}>
-          <Text style={s.levelBadge}>
-            <Text style={{ color: info?.color || C.gold }}>{currentLevel}</Text>
-            <Text style={{ color: C.muted }}> · {info?.name || ""}</Text>
-          </Text>
+        {/* ══ WORT DES TAGES ══ */}
+        <View style={s.wotdCard}>
+          <View style={s.wotdHeader}>
+            <Text style={s.wotdLabel}>WORT DES TAGES</Text>
+            <Text style={s.wotdLevel}>{wotd.level}</Text>
+          </View>
+          <Text style={s.wotdWord}>{wotd.article ? `${wotd.article} ` : ""}{wotd.word}</Text>
+          <Text style={s.wotdMeaning}>{wotd.meaningDe}</Text>
+          <Text style={s.wotdMeaningEn}>{wotd.meaningEn}</Text>
+          <View style={s.wotdDivider} />
+          <Text style={s.wotdExample}>"{wotd.example}"</Text>
+          <Text style={s.wotdExampleEn}>{wotd.exampleEn}</Text>
+        </View>
 
-          {levelCities.map((city, i) => {
-            const cDone = city.lessonIds.filter(id => done.includes(id)).length;
-            const cTotal = city.lessonIds.length;
-            const isComplete = cDone === cTotal;
-            const isCurrent = city.id === currentCity.id;
-            const isLocked = !isCurrent && !isComplete && i > levelCities.findIndex(c => c.id === currentCity.id);
+        {/* ══ NÄCHSTE MISSION (CTA) ══ */}
+        {nextLesson && (
+          <TouchableOpacity
+            style={s.missionCard}
+            onPress={() => router.push({ pathname: "/lesson", params: { lessonId: nextLesson.id } })}
+            activeOpacity={0.85}
+          >
+            <View style={s.missionTop}>
+              <Text style={s.missionEmoji}>{currentCity.emoji}</Text>
+              <View style={s.missionMeta}>
+                <Text style={s.missionCity}>{currentCity.name}</Text>
+                <Text style={s.missionProgress}>{cityDone}/{cityTotal} Missionen</Text>
+              </View>
+              <View style={s.missionXP}>
+                <Text style={s.missionXPText}>+{nextLesson.xp_reward || 50}</Text>
+                <Text style={s.missionXPLabel}>XP</Text>
+              </View>
+            </View>
+            <View style={s.missionProgressBar}>
+              <View style={[s.missionProgressFill, { width: `${(cityDone / cityTotal) * 100}%` }]} />
+            </View>
+            <Text style={s.missionTitle}>{nextLesson.title_de || nextLesson.title}</Text>
+            <Text style={s.missionDesc} numberOfLines={2}>{nextLesson.description}</Text>
+            <View style={s.missionCTA}>
+              <Text style={s.missionCTAText}>▶ SPIELEN</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
-            return (
-              <View key={city.id}>
-                {/* Connector line */}
-                {i > 0 && (
-                  <View style={s.connector}>
-                    <View style={[s.connectorLine, isComplete || isCurrent ? { backgroundColor: C.gold } : { backgroundColor: C.border }]} />
-                  </View>
-                )}
+        {/* ══ ZUGSTRECKE (Train Route) ══ */}
+        <View style={s.routeSection}>
+          <Text style={s.sectionTitle}>DEINE REISE</Text>
+          <View style={s.routeContainer}>
+            {levelCities.map((city, i) => {
+              const cDone = city.lessonIds.filter(id => done.includes(id)).length;
+              const cTotal = city.lessonIds.length;
+              const isComplete = cDone === cTotal;
+              const isCurrent = city.id === currentCity.id;
+              const isLocked = !isCurrent && !isComplete && i > levelCities.findIndex(c => c.id === currentCity.id);
 
-                {/* City node */}
-                <TouchableOpacity
-                  style={[
-                    s.cityNode,
-                    isCurrent && s.cityNodeCurrent,
-                    isComplete && s.cityNodeDone,
-                    isLocked && s.cityNodeLocked,
-                  ]}
-                  onPress={() => {
-                    if (!isLocked) {
-                      const lesson = ALL_STATIC_LESSONS
-                        .filter((l: any) => city.lessonIds.includes(l.id))
-                        .sort((a: any, b: any) => a.order_index - b.order_index)
-                        .find((l: any) => !done.includes(l.id));
-                      if (lesson) router.push({ pathname: "/lesson", params: { lessonId: lesson.id } });
-                    }
-                  }}
-                  activeOpacity={isLocked ? 1 : 0.7}
-                >
-                  <View style={[s.cityIcon, isCurrent && { borderColor: C.gold, borderWidth: 3 }, isComplete && { borderColor: C.green, borderWidth: 2 }]}>
-                    <Text style={{ fontSize: isCurrent ? 28 : 22 }}>{city.emoji}</Text>
-                    {isCurrent && <Text style={s.avatarOnCity}>{avatarEmoji}</Text>}
-                  </View>
-                  <View style={s.cityInfo}>
-                    <Text style={[s.cityName, isLocked && { color: C.muted2 }]}>{city.name}</Text>
-                    {isComplete ? (
-                      <Text style={{ fontSize: 11, color: C.green, fontWeight: "600" }}>✓ Abgeschlossen</Text>
-                    ) : isCurrent ? (
-                      <View style={s.cityProgress}>
-                        <View style={s.cityProgressTrack}>
-                          <View style={[s.cityProgressFill, { width: `${(cDone / cTotal) * 100}%` }]} />
-                        </View>
-                        <Text style={s.cityProgressText}>{cDone}/{cTotal}</Text>
-                      </View>
-                    ) : (
-                      <Text style={{ fontSize: 11, color: C.muted2 }}>🔒 Gesperrt</Text>
+              return (
+                <View key={city.id}>
+                  {/* Rail connector */}
+                  {i > 0 && (
+                    <View style={s.rail}>
+                      <View style={[s.railLine, isComplete || isCurrent ? { backgroundColor: C.gold } : { backgroundColor: C.bg3 }]} />
+                    </View>
+                  )}
+
+                  {/* Station */}
+                  <View style={[s.station, isCurrent && s.stationCurrent]}>
+                    {/* Station dot */}
+                    <View style={[
+                      s.stationDot,
+                      isComplete && { backgroundColor: C.green, borderColor: C.green },
+                      isCurrent && { backgroundColor: C.gold, borderColor: C.gold, width: 20, height: 20, borderRadius: 10 },
+                      isLocked && { backgroundColor: C.bg3, borderColor: C.bg3 },
+                    ]}>
+                      {isCurrent && <Text style={{ fontSize: 10, color: "#FFF" }}>{avatarEmoji}</Text>}
+                      {isComplete && <Text style={{ fontSize: 8, color: "#FFF" }}>✓</Text>}
+                    </View>
+
+                    {/* Station info */}
+                    <View style={s.stationInfo}>
+                      <Text style={[s.stationName, isLocked && { color: C.muted2 }]}>{city.emoji} {city.name}</Text>
+                      {isComplete && <Text style={s.stationDone}>Abgeschlossen</Text>}
+                      {isCurrent && <Text style={s.stationActive}>{cDone}/{cTotal} Missionen</Text>}
+                      {isLocked && <Text style={s.stationLocked}>Noch gesperrt</Text>}
+                    </View>
+
+                    {/* Play button for current */}
+                    {isCurrent && (
+                      <TouchableOpacity
+                        style={s.stationPlay}
+                        onPress={() => { if (nextLesson) router.push({ pathname: "/lesson", params: { lessonId: nextLesson.id } }); }}
+                      >
+                        <Text style={s.stationPlayText}>▶</Text>
+                      </TouchableOpacity>
                     )}
                   </View>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
+                </View>
+              );
+            })}
+          </View>
         </View>
 
-        {/* ══ ITEMS (collected) ══ */}
+        {/* ══ ITEMS ══ */}
         {collectedItems.length > 0 && (
           <View style={s.itemsSection}>
-            <Text style={s.sectionLabel}>DEINE ITEMS</Text>
+            <Text style={s.sectionTitle}>DEINE ITEMS</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={s.itemsRow}>
                 {collectedItems.map(item => (
                   <View key={item.id} style={s.itemCard}>
                     <Text style={{ fontSize: 28 }}>{item.emoji}</Text>
                     <Text style={s.itemName}>{item.name}</Text>
+                    <Text style={s.itemCity}>{item.city}</Text>
+                  </View>
+                ))}
+                {/* Locked next items */}
+                {ALL_ITEMS.filter(i => !collectedItems.find(c => c.id === i.id)).slice(0, 3).map(item => (
+                  <View key={item.id} style={[s.itemCard, { opacity: 0.3 }]}>
+                    <Text style={{ fontSize: 28 }}>❓</Text>
+                    <Text style={s.itemName}>???</Text>
+                    <Text style={s.itemCity}>{item.city}</Text>
                   </View>
                 ))}
               </View>
@@ -165,29 +207,22 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={{ height: 20 }} />
-      </ScrollView>
-
-      {/* ══ BOTTOM CTA: Fixed "SPIELEN" button ══ */}
-      {nextLesson && (
-        <View style={s.ctaBar}>
-          <TouchableOpacity
-            style={s.ctaButton}
-            onPress={() => router.push({ pathname: "/lesson", params: { lessonId: (nextLesson as any).id } })}
-            activeOpacity={0.85}
-          >
-            <View style={s.ctaContent}>
-              <View>
-                <Text style={s.ctaLabel}>WEITER SPIELEN</Text>
-                <Text style={s.ctaTitle}>{(nextLesson as any).title_de || (nextLesson as any).title}</Text>
-              </View>
-              <View style={s.ctaXP}>
-                <Text style={s.ctaXPText}>+{(nextLesson as any).xp_reward || 50} XP</Text>
+        {/* ══ AVATAR STATUS ══ */}
+        <View style={s.avatarCard}>
+          <View style={s.avatarRow}>
+            <Text style={{ fontSize: 40 }}>{avatarEmoji}</Text>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={s.avatarName}>{name || "Reisender"}</Text>
+              <Text style={s.avatarLevel}>{avatarTitle} · Level {avatarLevel + 1}</Text>
+              <View style={s.avatarXPBar}>
+                <View style={[s.avatarXPFill, { width: `${Math.min(100, (xp / (AVATAR_STAGES[avatarLevel + 1]?.minXP || 5000)) * 100)}%` }]} />
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         </View>
-      )}
+
+        <View style={{ height: 30 }} />
+      </ScrollView>
     </View>
   );
 }
@@ -196,56 +231,76 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   flagStrip: { flexDirection: "row", height: 3 },
   flagBar: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingBottom: 120 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
-  // ── HUD ──
-  hud: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 16 },
-  hudLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
-  avatarRing: { width: 52, height: 52, borderRadius: 26, borderWidth: 2.5, borderColor: C.gold, alignItems: "center", justifyContent: "center", backgroundColor: C.card },
-  avatarEmoji: { fontSize: 28 },
-  hudName: { fontSize: 17, fontWeight: "800", color: C.text },
-  hudTitle: { fontSize: 12, color: C.gold, fontWeight: "600", marginTop: 1 },
-  hudRight: { flexDirection: "row", gap: 8 },
-  statPill: { backgroundColor: C.redDim, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  statText: { fontSize: 14, fontWeight: "800", color: C.red },
+  // ── Header ──
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", paddingTop: 16, paddingBottom: 12 },
+  headerLeft: {},
+  greeting: { fontSize: 14, color: C.muted },
+  userName: { fontSize: 26, fontWeight: "800", color: C.text, marginTop: 2 },
+  headerRight: { flexDirection: "row", gap: 8, marginTop: 6 },
+  statBadge: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  statBadgeText: { fontSize: 14, fontWeight: "800" },
 
-  // ── Level Badge ──
-  levelBadge: { fontSize: 14, fontWeight: "800", letterSpacing: 1, marginBottom: 16, marginTop: 8 },
+  // ── Wort des Tages ──
+  wotdCard: { backgroundColor: C.card, borderRadius: 20, padding: 22, marginTop: 8, marginBottom: 16, borderWidth: 1, borderColor: C.goldLine, shadowColor: C.gold, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
+  wotdHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
+  wotdLabel: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2 },
+  wotdLevel: { fontSize: 10, fontWeight: "800", color: C.muted, backgroundColor: C.bg2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  wotdWord: { fontFamily: SERIF, fontSize: 32, fontWeight: "700", color: C.text, fontStyle: "italic" },
+  wotdMeaning: { fontSize: 15, color: C.textSec, marginTop: 6, lineHeight: 21 },
+  wotdMeaningEn: { fontSize: 13, color: C.muted, marginTop: 2 },
+  wotdDivider: { height: 1, backgroundColor: C.border, marginVertical: 14 },
+  wotdExample: { fontSize: 15, color: C.text, fontStyle: "italic", lineHeight: 22 },
+  wotdExampleEn: { fontSize: 13, color: C.muted, marginTop: 4 },
 
-  // ── City Path ──
-  pathSection: { paddingVertical: 8 },
-  connector: { alignItems: "center", height: 32 },
-  connectorLine: { width: 3, height: 32, borderRadius: 2 },
+  // ── Mission CTA ──
+  missionCard: { backgroundColor: C.card, borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: C.border, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  missionTop: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
+  missionEmoji: { fontSize: 36 },
+  missionMeta: { flex: 1 },
+  missionCity: { fontSize: 12, fontWeight: "800", color: C.muted, letterSpacing: 1, textTransform: "uppercase" },
+  missionProgress: { fontSize: 11, color: C.muted, marginTop: 2 },
+  missionXP: { backgroundColor: C.goldDim, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, alignItems: "center" },
+  missionXPText: { fontSize: 16, fontWeight: "900", color: C.gold },
+  missionXPLabel: { fontSize: 9, fontWeight: "700", color: C.gold },
+  missionProgressBar: { height: 4, backgroundColor: C.bg2, borderRadius: 2, marginBottom: 14, overflow: "hidden" },
+  missionProgressFill: { height: "100%", backgroundColor: C.gold, borderRadius: 2 },
+  missionTitle: { fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: C.text },
+  missionDesc: { fontSize: 14, color: C.muted, lineHeight: 20, marginTop: 6 },
+  missionCTA: { backgroundColor: C.gold, borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 16 },
+  missionCTAText: { fontSize: 15, fontWeight: "900", color: "#FFF", letterSpacing: 1 },
 
-  cityNode: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: C.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border },
-  cityNodeCurrent: { borderColor: C.gold, borderWidth: 2, backgroundColor: C.card2 },
-  cityNodeDone: { borderColor: C.green, opacity: 0.8 },
-  cityNodeLocked: { opacity: 0.35 },
+  // ── Route (Train) ──
+  routeSection: { marginBottom: 20 },
+  sectionTitle: { fontSize: 11, fontWeight: "900", color: C.muted, letterSpacing: 2, marginBottom: 14 },
+  routeContainer: { paddingLeft: 4 },
+  rail: { paddingLeft: 9, height: 24 },
+  railLine: { width: 3, height: 24, borderRadius: 2, marginLeft: -1 },
 
-  cityIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
-  avatarOnCity: { position: "absolute", bottom: -4, right: -4, fontSize: 16 },
-
-  cityInfo: { flex: 1 },
-  cityName: { fontSize: 17, fontWeight: "800", color: C.text },
-
-  cityProgress: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
-  cityProgressTrack: { flex: 1, height: 6, backgroundColor: C.bg3, borderRadius: 3, overflow: "hidden" },
-  cityProgressFill: { height: "100%", backgroundColor: C.gold, borderRadius: 3 },
-  cityProgressText: { fontSize: 11, fontWeight: "700", color: C.muted },
+  station: { flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 6 },
+  stationCurrent: { backgroundColor: C.goldDim, borderRadius: 14, padding: 12, marginHorizontal: -8, marginVertical: 2 },
+  stationDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: C.border, backgroundColor: C.card, alignItems: "center", justifyContent: "center" },
+  stationInfo: { flex: 1 },
+  stationName: { fontSize: 16, fontWeight: "700", color: C.text },
+  stationDone: { fontSize: 11, color: C.green, fontWeight: "600", marginTop: 2 },
+  stationActive: { fontSize: 11, color: C.gold, fontWeight: "600", marginTop: 2 },
+  stationLocked: { fontSize: 11, color: C.muted2, marginTop: 2 },
+  stationPlay: { backgroundColor: C.gold, borderRadius: 12, width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  stationPlayText: { fontSize: 16, color: "#FFF", fontWeight: "800" },
 
   // ── Items ──
-  itemsSection: { marginTop: 24 },
-  sectionLabel: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 12 },
+  itemsSection: { marginBottom: 20 },
   itemsRow: { flexDirection: "row", gap: 10 },
-  itemCard: { width: 72, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 10, alignItems: "center", gap: 6 },
-  itemName: { fontSize: 9, color: C.muted, textAlign: "center" },
+  itemCard: { width: 80, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 12, alignItems: "center", gap: 4 },
+  itemName: { fontSize: 10, fontWeight: "700", color: C.text, textAlign: "center" },
+  itemCity: { fontSize: 9, color: C.muted, textAlign: "center" },
 
-  // ── CTA Button ──
-  ctaBar: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: SAFE_BOTTOM + 60, paddingTop: 12, backgroundColor: C.bg },
-  ctaButton: { backgroundColor: C.gold, borderRadius: 18, overflow: "hidden" },
-  ctaContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 18 },
-  ctaLabel: { fontSize: 10, fontWeight: "900", color: "#0D0E14", letterSpacing: 2 },
-  ctaTitle: { fontSize: 17, fontWeight: "800", color: "#0D0E14", marginTop: 3 },
-  ctaXP: { backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
-  ctaXPText: { fontSize: 13, fontWeight: "900", color: "#0D0E14" },
+  // ── Avatar Card ──
+  avatarCard: { backgroundColor: C.card, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: C.border },
+  avatarRow: { flexDirection: "row", alignItems: "center" },
+  avatarName: { fontSize: 18, fontWeight: "800", color: C.text },
+  avatarLevel: { fontSize: 13, color: C.gold, fontWeight: "600", marginTop: 2 },
+  avatarXPBar: { height: 6, backgroundColor: C.bg2, borderRadius: 3, marginTop: 8, overflow: "hidden" },
+  avatarXPFill: { height: "100%", backgroundColor: C.gold, borderRadius: 3 },
 });

@@ -6,59 +6,59 @@ export const SAFE_TOP    = Platform.OS === "ios" ? 54 : Platform.OS === "web" ? 
 export const SAFE_BOTTOM = Platform.OS === "ios" ? 34 : 16;
 
 export const C = {
-  // ── Backgrounds (dark game theme — Schwarz from flag) ──
-  bg:        "#0D0E14",
-  bg2:       "#141520",
-  bg3:       "#1C1D2A",
+  // ── Backgrounds (clean, warm white — like a travel journal) ──
+  bg:        "#FAFAFA",
+  bg2:       "#F2F2F7",
+  bg3:       "#E8E8ED",
 
   // ── Cards ─────────────────────────────────────────
-  card:      "#181926",
-  card2:     "#1F2030",
+  card:      "#FFFFFF",
+  card2:     "#F5F5FA",
 
   // ── Borders ───────────────────────────────────────
-  border:    "#2A2B3A",
-  border2:   "#35364A",
+  border:    "#E2E2EA",
+  border2:   "#D0D0DA",
 
   // ── Text ──────────────────────────────────────────
   white:     "#FFFFFF",
-  text:      "#F0F0F5",
-  textSec:   "#A0A0B8",
-  muted:     "#5A5A70",
-  muted2:    "#3E3E52",
+  text:      "#1A1A2E",
+  textSec:   "#4A4A60",
+  muted:     "#8A8AA0",
+  muted2:    "#B0B0C0",
 
-  // ── German flag colours (subtly woven in) ─────────
-  flagBlack: "#0D0E14",      // IS the background
-  flagRed:   "#DD0000",
-  flagGold:  "#FFCC00",
+  // ── German flag colours (accent system) ───────────
+  flagBlack: "#1A1A2E",
+  flagRed:   "#E53935",
+  flagGold:  "#FFB300",
 
-  // ── Gold (PRIMARY accent — from German flag) ──────
-  gold:      "#FFCC00",
-  goldLight: "#FFD633",
-  goldLine:  "rgba(255,204,0,0.25)",
-  goldDim:   "rgba(255,204,0,0.10)",
+  // ── Gold (warm, premium — primary accent) ─────────
+  gold:      "#FFB300",
+  goldLight: "#FFC940",
+  goldLine:  "rgba(255,179,0,0.30)",
+  goldDim:   "rgba(255,179,0,0.08)",
 
-  // ── Red (streak, urgency — from German flag) ──────
-  red:       "#DD0000",
-  redLine:   "rgba(221,0,0,0.25)",
-  redDim:    "rgba(221,0,0,0.10)",
+  // ── Red (warm red — streak, urgency) ──────────────
+  red:       "#E53935",
+  redLine:   "rgba(229,57,53,0.25)",
+  redDim:    "rgba(229,57,53,0.08)",
 
-  // ── Green (correct/success) ───────────────────────
-  green:     "#34D399",
-  greenLight:"#4ADE80",
-  greenLine: "rgba(52,211,153,0.25)",
-  greenDim:  "rgba(52,211,153,0.10)",
+  // ── Green (fresh — success) ───────────────────────
+  green:     "#43A047",
+  greenLight:"#66BB6A",
+  greenLine: "rgba(67,160,71,0.25)",
+  greenDim:  "rgba(67,160,71,0.08)",
 
   // ── Blue ──────────────────────────────────────────
-  blue:      "#60A5FA",
-  blueLine:  "rgba(96,165,250,0.25)",
-  blueDim:   "rgba(96,165,250,0.10)",
+  blue:      "#1E88E5",
+  blueLine:  "rgba(30,136,229,0.25)",
+  blueDim:   "rgba(30,136,229,0.08)",
 
   // ── Purple ────────────────────────────────────────
-  purple:    "#A78BFA",
-  purpleLine:"rgba(167,139,250,0.25)",
-  purpleDim: "rgba(167,139,250,0.10)",
+  purple:    "#7E57C2",
+  purpleLine:"rgba(126,87,194,0.25)",
+  purpleDim: "rgba(126,87,194,0.08)",
 
-  // ── Dark (legacy compat) ──────────────────────────
-  dark:      "#0D0E14",
-  black:     "#080810",
+  // ── Dark ──────────────────────────────────────────
+  dark:      "#1A1A2E",
+  black:     "#111118",
 };

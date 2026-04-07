@@ -71,7 +71,7 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabIcon: { alignItems: "center", justifyContent: "center" },
-  emoji: { fontSize: 22, opacity: 0.4 },
+  emoji: { fontSize: 22, opacity: 0.5 },
   emojiFocused: { opacity: 1, fontSize: 24 },
-  activeIndicator: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#FFCC00", marginTop: 3 },
+  activeIndicator: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.gold, marginTop: 3 },
 });
