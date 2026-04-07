@@ -6,59 +6,59 @@ export const SAFE_TOP    = Platform.OS === "ios" ? 54 : Platform.OS === "web" ? 
 export const SAFE_BOTTOM = Platform.OS === "ios" ? 34 : 16;
 
 export const C = {
-  // ── Backgrounds (warm cream notebook) ───────────
-  bg:        "#FAF8F3",
-  bg2:       "#F3F0E8",
-  bg3:       "#EBE7DD",
+  // ── Backgrounds (dark game theme — Schwarz from flag) ──
+  bg:        "#0D0E14",
+  bg2:       "#141520",
+  bg3:       "#1C1D2A",
 
   // ── Cards ─────────────────────────────────────────
-  card:      "#FFFFFF",
-  card2:     "#F7F5EF",
+  card:      "#181926",
+  card2:     "#1F2030",
 
   // ── Borders ───────────────────────────────────────
-  border:    "#E5E0D5",
-  border2:   "#D4CFC4",
+  border:    "#2A2B3A",
+  border2:   "#35364A",
 
   // ── Text ──────────────────────────────────────────
   white:     "#FFFFFF",
-  text:      "#1C1C2E",
-  textSec:   "#4A4A5A",
-  muted:     "#8E8E9A",
-  muted2:    "#AEAEB8",
+  text:      "#F0F0F5",
+  textSec:   "#A0A0B8",
+  muted:     "#5A5A70",
+  muted2:    "#3E3E52",
 
-  // ── German flag colours ───────────────────────────
-  flagBlack: "#1A1A1A",
-  flagRed:   "#CC0000",
-  flagGold:  "#C9A84C",
+  // ── German flag colours (subtly woven in) ─────────
+  flagBlack: "#0D0E14",      // IS the background
+  flagRed:   "#DD0000",
+  flagGold:  "#FFCC00",
 
-  // ── Gold (primary accent) ─────────────────────────
-  gold:      "#B8922A",
-  goldLight: "#C9A84C",
-  goldLine:  "rgba(184,146,42,0.25)",
-  goldDim:   "rgba(184,146,42,0.08)",
+  // ── Gold (PRIMARY accent — from German flag) ──────
+  gold:      "#FFCC00",
+  goldLight: "#FFD633",
+  goldLine:  "rgba(255,204,0,0.25)",
+  goldDim:   "rgba(255,204,0,0.10)",
 
-  // ── Red ───────────────────────────────────────────
-  red:       "#CC0000",
-  redLine:   "rgba(204,0,0,0.20)",
-  redDim:    "rgba(204,0,0,0.06)",
+  // ── Red (streak, urgency — from German flag) ──────
+  red:       "#DD0000",
+  redLine:   "rgba(221,0,0,0.25)",
+  redDim:    "rgba(221,0,0,0.10)",
 
-  // ── Green (correct) ──────────────────────────────
-  green:     "#2E8B57",
-  greenLight:"#4CAF50",
-  greenLine: "rgba(46,139,87,0.25)",
-  greenDim:  "rgba(46,139,87,0.08)",
+  // ── Green (correct/success) ───────────────────────
+  green:     "#34D399",
+  greenLight:"#4ADE80",
+  greenLine: "rgba(52,211,153,0.25)",
+  greenDim:  "rgba(52,211,153,0.10)",
 
   // ── Blue ──────────────────────────────────────────
-  blue:      "#2563EB",
-  blueLine:  "rgba(37,99,235,0.20)",
-  blueDim:   "rgba(37,99,235,0.06)",
+  blue:      "#60A5FA",
+  blueLine:  "rgba(96,165,250,0.25)",
+  blueDim:   "rgba(96,165,250,0.10)",
 
   // ── Purple ────────────────────────────────────────
-  purple:    "#7C3AED",
-  purpleLine:"rgba(124,58,237,0.20)",
-  purpleDim: "rgba(124,58,237,0.06)",
+  purple:    "#A78BFA",
+  purpleLine:"rgba(167,139,250,0.25)",
+  purpleDim: "rgba(167,139,250,0.10)",
 
-  // ── Dark (for headers, strong text) ───────────────
-  dark:      "#1C1C2E",
-  black:     "#111111",
+  // ── Dark (legacy compat) ──────────────────────────
+  dark:      "#0D0E14",
+  black:     "#080810",
 };

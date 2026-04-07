@@ -1,36 +1,16 @@
 import { useState, useCallback } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  StatusBar, Dimensions, Platform,
+  StatusBar, Dimensions,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Progress } from "../../services/progress";
 import { ALL_STATIC_LESSONS } from "../../data/lessonData";
 import { JOURNEY_CITIES, LEVEL_INFO } from "../../data/journeyData";
-import { Avatar, AVATAR_STAGES, type AvatarState } from "../../services/avatar";
-import { C, SAFE_TOP, SERIF } from "../../theme";
+import { Avatar, AVATAR_STAGES, ALL_ITEMS, type AvatarState } from "../../services/avatar";
+import { C, SAFE_TOP, SAFE_BOTTOM, SERIF } from "../../theme";
 
 const { width: SW } = Dimensions.get("window");
-const BOARD_W = Math.min(SW - 32, 500);
-
-// City positions on the board (percentage x, y)
-const CITY_POS: Record<string, { x: number; y: number }> = {
-  berlin: { x: 50, y: 8 }, hamburg: { x: 25, y: 18 }, dresden: { x: 75, y: 28 },
-  leipzig: { x: 35, y: 38 }, koeln: { x: 20, y: 48 }, frankfurt: { x: 55, y: 52 },
-  duesseldorf: { x: 80, y: 45 }, stuttgart: { x: 35, y: 62 }, muenchen: { x: 65, y: 70 },
-  nuernberg: { x: 50, y: 58 }, heidelberg: { x: 25, y: 72 }, freiburg: { x: 15, y: 82 },
-  bremen: { x: 40, y: 15 }, hannover: { x: 55, y: 22 }, weimar: { x: 70, y: 35 },
-  potsdam: { x: 65, y: 12 }, luebeck: { x: 45, y: 8 }, bamberg: { x: 60, y: 55 },
-  rothenburg: { x: 45, y: 65 }, wien: { x: 80, y: 80 }, zuerich: { x: 35, y: 90 },
-};
-
-const CHARACTER_LEVELS = [
-  { emoji: "🎒", label: "Tourist" },
-  { emoji: "🧳", label: "Reisender" },
-  { emoji: "🚲", label: "Local" },
-  { emoji: "📰", label: "Pro" },
-  { emoji: "🎩", label: "Master" },
-];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -38,7 +18,6 @@ export default function HomeScreen() {
   const [streak, setStreak] = useState(0);
   const [done, setDone] = useState<string[]>([]);
   const [name, setName] = useState("");
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [avatarState, setAvatarState] = useState<AvatarState | null>(null);
 
   useFocusEffect(useCallback(() => {
@@ -48,387 +27,225 @@ export default function HomeScreen() {
     Avatar.getState().then(setAvatarState);
   }, []));
 
-  // Current city & character level (use avatar system)
-  const currentCity = JOURNEY_CITIES.find(c => !c.lessonIds.every(id => done.includes(id))) || JOURNEY_CITIES[0];
+  // Derived state
   const avatarLevel = Avatar.getAvatarLevel(xp);
-  const avatarEmoji = AVATAR_STAGES[avatarLevel]?.emoji || "🎒";
+  const avatarEmoji = AVATAR_STAGES[avatarLevel]?.emoji || "🧑‍🎒";
   const avatarTitle = AVATAR_STAGES[avatarLevel]?.name || "Backpacker";
-  const charLevel = Math.min(Math.floor(done.length / 5), CHARACTER_LEVELS.length - 1);
-  const character = { emoji: avatarEmoji, label: avatarTitle };
-
-  // Get current level cities for the board
+  const currentCity = JOURNEY_CITIES.find(c => !c.lessonIds.every(id => done.includes(id))) || JOURNEY_CITIES[0];
   const currentLevel = currentCity.level;
   const levelCities = JOURNEY_CITIES.filter(c => c.level === currentLevel);
   const info = LEVEL_INFO[currentLevel];
+  const collectedItems = avatarState ? ALL_ITEMS.filter(i => avatarState.items.includes(i.id)) : [];
 
-  const getCityState = (city: typeof JOURNEY_CITIES[0]) => {
-    const d = city.lessonIds.filter(id => done.includes(id)).length;
-    const t = city.lessonIds.length;
-    return { done: d, total: t, complete: d === t, current: city.id === currentCity.id, started: d > 0 };
-  };
-
-  const selected = selectedCity ? JOURNEY_CITIES.find(c => c.id === selectedCity) : null;
+  // Next lesson
+  const nextLesson = ALL_STATIC_LESSONS
+    .filter((l: any) => currentCity.lessonIds.includes(l.id))
+    .sort((a: any, b: any) => a.order_index - b.order_index)
+    .find((l: any) => !done.includes(l.id));
+  const cityDone = currentCity.lessonIds.filter(id => done.includes(id)).length;
+  const cityTotal = currentCity.lessonIds.length;
 
   return (
     <View style={s.root}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <View style={{ height: SAFE_TOP }} />
 
-      {/* Top bar */}
-      <View style={s.topBar}>
-        <View style={s.charBadge}>
-          <Text style={s.charEmoji}>{character.emoji}</Text>
-          <Text style={s.charLabel}>{name || "Reisender"}</Text>
-        </View>
-        <View style={s.statsRow}>
-          <View style={s.statPill}>
-            <Text style={s.statText}>🔥 {streak}</Text>
-          </View>
-          <View style={[s.statPill, { backgroundColor: C.goldDim }]}>
-            <Text style={[s.statText, { color: C.gold }]}>⚡ {xp}</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={s.gearBtn} onPress={() => router.push("/settings")}>
-          <Text style={{ fontSize: 16 }}>⚙️</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Level title */}
-      <View style={s.levelBar}>
-        <View style={[s.levelDot, { backgroundColor: info?.color }]} />
-        <Text style={s.levelTitle}>{currentLevel}: </Text>
-        <Text style={s.levelName}>{info?.name}</Text>
+      {/* ── German flag strip (subtle, 3px) ── */}
+      <View style={s.flagStrip}>
+        <View style={[s.flagBar, { backgroundColor: "#1A1A1A" }]} />
+        <View style={[s.flagBar, { backgroundColor: C.red }]} />
+        <View style={[s.flagBar, { backgroundColor: C.gold }]} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-        {/* ═══ THE GAME BOARD ═══ */}
-        <View style={[s.board, { width: BOARD_W, height: BOARD_W * 0.7 }]}>
+        {/* ══ TOP: Avatar + Stats HUD ══ */}
+        <View style={s.hud}>
+          <View style={s.hudLeft}>
+            {/* Avatar ring */}
+            <View style={s.avatarRing}>
+              <Text style={s.avatarEmoji}>{avatarEmoji}</Text>
+            </View>
+            <View>
+              <Text style={s.hudName}>{name || "Reisender"}</Text>
+              <Text style={s.hudTitle}>{avatarTitle}</Text>
+            </View>
+          </View>
+          <View style={s.hudRight}>
+            <View style={s.statPill}>
+              <Text style={s.statText}>🔥 {streak}</Text>
+            </View>
+            <View style={[s.statPill, { backgroundColor: C.goldDim }]}>
+              <Text style={[s.statText, { color: C.gold }]}>⚡ {xp}</Text>
+            </View>
+          </View>
+        </View>
 
-          {/* Path lines between cities */}
+        {/* ══ CITY PATH (vertical journey) ══ */}
+        <View style={s.pathSection}>
+          <Text style={s.levelBadge}>
+            <Text style={{ color: info?.color || C.gold }}>{currentLevel}</Text>
+            <Text style={{ color: C.muted }}> · {info?.name || ""}</Text>
+          </Text>
+
           {levelCities.map((city, i) => {
-            if (i === 0) return null;
-            const prev = levelCities[i - 1];
-            const p1 = CITY_POS[prev.id] || { x: 50, y: 50 };
-            const p2 = CITY_POS[city.id] || { x: 50, y: 50 };
-            const prevState = getCityState(prev);
-            const isGold = prevState.complete;
-
-            // Calculate line position & rotation
-            const x1 = (p1.x / 100) * BOARD_W;
-            const y1 = (p1.y / 100) * (BOARD_W * 0.7);
-            const x2 = (p2.x / 100) * BOARD_W;
-            const y2 = (p2.y / 100) * (BOARD_W * 0.7);
-            const len = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-            const angle = Math.atan2(y2 - y1, x2 - x1) * (180 / Math.PI);
+            const cDone = city.lessonIds.filter(id => done.includes(id)).length;
+            const cTotal = city.lessonIds.length;
+            const isComplete = cDone === cTotal;
+            const isCurrent = city.id === currentCity.id;
+            const isLocked = !isCurrent && !isComplete && i > levelCities.findIndex(c => c.id === currentCity.id);
 
             return (
-              <View
-                key={`line-${i}`}
-                style={{
-                  position: "absolute",
-                  left: x1,
-                  top: y1,
-                  width: len,
-                  height: 3,
-                  backgroundColor: isGold ? info?.color : C.border,
-                  borderRadius: 2,
-                  transform: [{ rotate: `${angle}deg` }],
-                  transformOrigin: "left center",
-                  opacity: isGold ? 0.8 : 0.4,
-                }}
-              />
-            );
-          })}
-
-          {/* City nodes */}
-          {levelCities.map(city => {
-            const pos = CITY_POS[city.id] || { x: 50, y: 50 };
-            const state = getCityState(city);
-            const isSelected = selectedCity === city.id;
-
-            const left = (pos.x / 100) * BOARD_W - 22;
-            const top = (pos.y / 100) * (BOARD_W * 0.7) - 22;
-
-            return (
-              <TouchableOpacity
-                key={city.id}
-                style={[
-                  s.cityNode,
-                  { left, top },
-                  state.complete && { backgroundColor: info?.color, borderColor: info?.color },
-                  state.current && { borderColor: info?.color, borderWidth: 3, backgroundColor: C.card },
-                  !state.started && !state.current && { opacity: 0.4 },
-                  isSelected && { transform: [{ scale: 1.15 }] },
-                ]}
-                onPress={() => setSelectedCity(city.id === selectedCity ? null : city.id)}
-                activeOpacity={0.7}
-              >
-                <Text style={s.cityNodeEmoji}>{city.emoji}</Text>
-                {/* Character on current city */}
-                {state.current && (
-                  <View style={s.characterOnBoard}>
-                    <Text style={{ fontSize: 18 }}>{character.emoji}</Text>
+              <View key={city.id}>
+                {/* Connector line */}
+                {i > 0 && (
+                  <View style={s.connector}>
+                    <View style={[s.connectorLine, isComplete || isCurrent ? { backgroundColor: C.gold } : { backgroundColor: C.border }]} />
                   </View>
                 )}
-                {state.complete && (
-                  <View style={s.starBadge}>
-                    <Text style={{ fontSize: 10, color: "#fff" }}>⭐</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
 
-          {/* City labels */}
-          {levelCities.map(city => {
-            const pos = CITY_POS[city.id] || { x: 50, y: 50 };
-            const left = (pos.x / 100) * BOARD_W - 30;
-            const top = (pos.y / 100) * (BOARD_W * 0.7) + 24;
-            const state = getCityState(city);
-            return (
-              <Text key={`label-${city.id}`} style={[
-                s.cityLabel,
-                { left, top },
-                state.current && { color: info?.color, fontWeight: "800" },
-                !state.started && !state.current && { opacity: 0.4 },
-              ]}>
-                {city.name}
-              </Text>
+                {/* City node */}
+                <TouchableOpacity
+                  style={[
+                    s.cityNode,
+                    isCurrent && s.cityNodeCurrent,
+                    isComplete && s.cityNodeDone,
+                    isLocked && s.cityNodeLocked,
+                  ]}
+                  onPress={() => {
+                    if (!isLocked) {
+                      const lesson = ALL_STATIC_LESSONS
+                        .filter((l: any) => city.lessonIds.includes(l.id))
+                        .sort((a: any, b: any) => a.order_index - b.order_index)
+                        .find((l: any) => !done.includes(l.id));
+                      if (lesson) router.push({ pathname: "/lesson", params: { lessonId: lesson.id } });
+                    }
+                  }}
+                  activeOpacity={isLocked ? 1 : 0.7}
+                >
+                  <View style={[s.cityIcon, isCurrent && { borderColor: C.gold, borderWidth: 3 }, isComplete && { borderColor: C.green, borderWidth: 2 }]}>
+                    <Text style={{ fontSize: isCurrent ? 28 : 22 }}>{city.emoji}</Text>
+                    {isCurrent && <Text style={s.avatarOnCity}>{avatarEmoji}</Text>}
+                  </View>
+                  <View style={s.cityInfo}>
+                    <Text style={[s.cityName, isLocked && { color: C.muted2 }]}>{city.name}</Text>
+                    {isComplete ? (
+                      <Text style={{ fontSize: 11, color: C.green, fontWeight: "600" }}>✓ Abgeschlossen</Text>
+                    ) : isCurrent ? (
+                      <View style={s.cityProgress}>
+                        <View style={s.cityProgressTrack}>
+                          <View style={[s.cityProgressFill, { width: `${(cDone / cTotal) * 100}%` }]} />
+                        </View>
+                        <Text style={s.cityProgressText}>{cDone}/{cTotal}</Text>
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 11, color: C.muted2 }}>🔒 Gesperrt</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </View>
             );
           })}
         </View>
 
-        {/* ═══ SELECTED CITY / MISSIONS ═══ */}
-        {selected ? (
-          <View style={s.missionCard}>
-            <View style={s.missionHeader}>
-              <Text style={s.missionEmoji}>{selected.emoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={s.missionCity}>{selected.name}</Text>
-                <Text style={s.missionDesc}>{selected.history}</Text>
-              </View>
-            </View>
-
-            {/* Missions (lessons) */}
-            <Text style={s.missionsTitle}>MISSIONS</Text>
-            {ALL_STATIC_LESSONS
-              .filter(l => selected.lessonIds.includes(l.id))
-              .sort((a, b) => a.order_index - b.order_index)
-              .map((lesson, i) => {
-                const isDone = done.includes(lesson.id);
-                const isNext = !isDone && (i === 0 || done.includes(selected.lessonIds[i - 1]));
-                const isLocked = !isDone && !isNext;
-
-                return (
-                  <TouchableOpacity
-                    key={lesson.id}
-                    style={[
-                      s.missionRow,
-                      isDone && { borderLeftColor: info?.color, borderLeftWidth: 3 },
-                      isNext && { borderColor: info?.color, borderWidth: 1.5 },
-                      isLocked && { opacity: 0.4 },
-                    ]}
-                    onPress={() => {
-                      if (!isLocked) router.push({ pathname: "/lesson", params: { lessonId: lesson.id } });
-                    }}
-                    activeOpacity={isLocked ? 1 : 0.7}
-                  >
-                    <View style={[s.missionNum, isDone && { backgroundColor: info?.color }]}>
-                      {isDone ? (
-                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "900" }}>⭐</Text>
-                      ) : isLocked ? (
-                        <Text style={{ fontSize: 12 }}>🔒</Text>
-                      ) : (
-                        <Text style={[s.missionNumText, isNext && { color: info?.color }]}>{i + 1}</Text>
-                      )}
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.missionName}>{lesson.title}</Text>
-                      <Text style={s.missionMeta}>{lesson.duration} min · +{lesson.xp_reward} XP</Text>
-                    </View>
-                    {isNext && (
-                      <View style={[s.playBtn, { backgroundColor: info?.color }]}>
-                        <Text style={s.playBtnText}>▶</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-
-            {/* Fun fact for completed cities */}
-            {getCityState(selected).complete && selected.funFact && (
-              <View style={s.funFact}>
-                <Text style={s.funFactText}>💡 {selected.funFact}</Text>
-              </View>
-            )}
-
-            {/* CHECKPOINT — Boss fight when all lessons done */}
-            {getCityState(selected).complete && (
-              <TouchableOpacity
-                style={{ backgroundColor: C.red, borderRadius: 16, padding: 18, marginTop: 12, alignItems: "center", flexDirection: "row", gap: 12, justifyContent: "center" }}
-                onPress={() => router.push({ pathname: "/checkpoint", params: { cityId: selected.id } })}
-                activeOpacity={0.8}
-              >
-                <Text style={{ fontSize: 24 }}>⚔️</Text>
-                <View>
-                  <Text style={{ fontSize: 16, fontWeight: "900", color: "#FFF" }}>CHECKPOINT</Text>
-                  <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.8)" }}>Beweise dein Können in {selected.name}!</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Items collected in this city */}
-            {avatarState && avatarState.items.length > 0 && (() => {
-              const { ALL_ITEMS: items } = require("../../services/avatar");
-              const cityItems = items.filter((i: any) => i.city === selected.id && avatarState.items.includes(i.id));
-              if (cityItems.length === 0) return null;
-              return (
-                <View style={{ marginTop: 12, backgroundColor: C.goldDim, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.goldLine }}>
-                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 1.5, marginBottom: 8 }}>GESAMMELTE ITEMS</Text>
-                  <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                    {cityItems.map((item: any) => (
-                      <View key={item.id} style={{ alignItems: "center", width: 60 }}>
-                        <Text style={{ fontSize: 28 }}>{item.emoji}</Text>
-                        <Text style={{ fontSize: 9, color: C.muted, textAlign: "center", marginTop: 2 }}>{item.name}</Text>
-                      </View>
-                    ))}
+        {/* ══ ITEMS (collected) ══ */}
+        {collectedItems.length > 0 && (
+          <View style={s.itemsSection}>
+            <Text style={s.sectionLabel}>DEINE ITEMS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={s.itemsRow}>
+                {collectedItems.map(item => (
+                  <View key={item.id} style={s.itemCard}>
+                    <Text style={{ fontSize: 28 }}>{item.emoji}</Text>
+                    <Text style={s.itemName}>{item.name}</Text>
                   </View>
-                </View>
-              );
-            })()}
-
-            <TouchableOpacity style={s.closeBtn} onPress={() => setSelectedCity(null)}>
-              <Text style={s.closeBtnText}>Schließen</Text>
-            </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
           </View>
-        ) : (
-          /* Quick play card when no city selected */
+        )}
+
+        <View style={{ height: 20 }} />
+      </ScrollView>
+
+      {/* ══ BOTTOM CTA: Fixed "SPIELEN" button ══ */}
+      {nextLesson && (
+        <View style={s.ctaBar}>
           <TouchableOpacity
-            style={[s.quickPlay, { borderColor: info?.color + "50" }]}
-            onPress={() => {
-              const next = ALL_STATIC_LESSONS
-                .filter(l => currentCity.lessonIds.includes(l.id))
-                .sort((a, b) => a.order_index - b.order_index)
-                .find(l => !done.includes(l.id));
-              if (next) router.push({ pathname: "/lesson", params: { lessonId: next.id } });
-            }}
+            style={s.ctaButton}
+            onPress={() => router.push({ pathname: "/lesson", params: { lessonId: (nextLesson as any).id } })}
             activeOpacity={0.85}
           >
-            <View style={{ flex: 1 }}>
-              <Text style={s.quickLabel}>NEXT MISSION</Text>
-              <Text style={s.quickCity}>{currentCity.emoji} {currentCity.name}</Text>
-              <Text style={s.quickMission}>
-                {ALL_STATIC_LESSONS
-                  .filter(l => currentCity.lessonIds.includes(l.id))
-                  .sort((a, b) => a.order_index - b.order_index)
-                  .find(l => !done.includes(l.id))?.title || "All missions complete!"}
-              </Text>
-            </View>
-            <View style={[s.quickPlayBtn, { backgroundColor: info?.color }]}>
-              <Text style={s.quickPlayBtnText}>▶</Text>
+            <View style={s.ctaContent}>
+              <View>
+                <Text style={s.ctaLabel}>WEITER SPIELEN</Text>
+                <Text style={s.ctaTitle}>{(nextLesson as any).title_de || (nextLesson as any).title}</Text>
+              </View>
+              <View style={s.ctaXP}>
+                <Text style={s.ctaXPText}>+{(nextLesson as any).xp_reward || 50} XP</Text>
+              </View>
             </View>
           </TouchableOpacity>
-        )}
-
-        {/* Tap hint */}
-        {!selected && (
-          <Text style={s.tapHint}>Tap a city on the board to see missions</Text>
-        )}
-
-        {/* Live Conversation */}
-        <TouchableOpacity style={s.liveCard} onPress={() => router.push("/live-lesson")} activeOpacity={0.8}>
-            <Text style={{ fontSize: 24 }}>🎙</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={s.liveTitle}>Live Conversation</Text>
-              <Text style={s.liveSub}>Talk to a real character in German!</Text>
-            </View>
-            <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>→</Text>
-          </TouchableOpacity>
-
-        {/* Daily Review */}
-        <TouchableOpacity style={s.reviewCard} onPress={() => router.push("/review")} activeOpacity={0.8}>
-          <Text style={{ fontSize: 24 }}>🧠</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={s.reviewTitle}>Daily Review</Text>
-            <Text style={s.reviewSub}>{done.length > 0 ? "Practice your vocabulary" : "Complete a lesson first"}</Text>
-          </View>
-          <Text style={{ color: C.gold, fontSize: 16, fontWeight: "700" }}>→</Text>
-        </TouchableOpacity>
-
-      </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  scroll: { paddingBottom: 100, alignItems: "center" },
+  flagStrip: { flexDirection: "row", height: 3 },
+  flagBar: { flex: 1 },
+  scroll: { paddingHorizontal: 20, paddingBottom: 120 },
 
-  // Top bar
-  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  charBadge: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, paddingHorizontal: 12, paddingVertical: 6 },
-  charEmoji: { fontSize: 20 },
-  charLabel: { fontSize: 13, fontWeight: "700", color: C.text },
-  statsRow: { flex: 1, flexDirection: "row", justifyContent: "flex-end", gap: 6 },
-  statPill: { backgroundColor: C.bg2, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6 },
-  statText: { fontSize: 13, fontWeight: "800", color: C.text },
-  gearBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
+  // ── HUD ──
+  hud: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 16 },
+  hudLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  avatarRing: { width: 52, height: 52, borderRadius: 26, borderWidth: 2.5, borderColor: C.gold, alignItems: "center", justifyContent: "center", backgroundColor: C.card },
+  avatarEmoji: { fontSize: 28 },
+  hudName: { fontSize: 17, fontWeight: "800", color: C.text },
+  hudTitle: { fontSize: 12, color: C.gold, fontWeight: "600", marginTop: 1 },
+  hudRight: { flexDirection: "row", gap: 8 },
+  statPill: { backgroundColor: C.redDim, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  statText: { fontSize: 14, fontWeight: "800", color: C.red },
 
-  // Level bar
-  levelBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingBottom: 8, gap: 6 },
-  levelDot: { width: 8, height: 8, borderRadius: 4 },
-  levelTitle: { fontSize: 14, fontWeight: "900", color: C.text },
-  levelName: { fontSize: 14, fontWeight: "600", color: C.muted },
+  // ── Level Badge ──
+  levelBadge: { fontSize: 14, fontWeight: "800", letterSpacing: 1, marginBottom: 16, marginTop: 8 },
 
-  // Board
-  board: { backgroundColor: C.card, borderRadius: 24, borderWidth: 1, borderColor: C.border, marginHorizontal: 16, marginTop: 8, position: "relative", overflow: "hidden" },
+  // ── City Path ──
+  pathSection: { paddingVertical: 8 },
+  connector: { alignItems: "center", height: 32 },
+  connectorLine: { width: 3, height: 32, borderRadius: 2 },
 
-  // City nodes
-  cityNode: { position: "absolute", width: 44, height: 44, borderRadius: 22, backgroundColor: C.bg2, borderWidth: 2, borderColor: C.border, alignItems: "center", justifyContent: "center", zIndex: 2 },
-  cityNodeEmoji: { fontSize: 20 },
-  characterOnBoard: { position: "absolute", top: -16, right: -8, backgroundColor: C.card, borderRadius: 12, borderWidth: 1, borderColor: C.goldLine, width: 24, height: 24, alignItems: "center", justifyContent: "center" },
-  starBadge: { position: "absolute", top: -6, right: -6, backgroundColor: C.gold, borderRadius: 10, width: 20, height: 20, alignItems: "center", justifyContent: "center" },
-  cityLabel: { position: "absolute", fontSize: 10, fontWeight: "600", color: C.muted, textAlign: "center", width: 60 },
+  cityNode: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: C.card, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: C.border },
+  cityNodeCurrent: { borderColor: C.gold, borderWidth: 2, backgroundColor: C.card2 },
+  cityNodeDone: { borderColor: C.green, opacity: 0.8 },
+  cityNodeLocked: { opacity: 0.35 },
 
-  // Mission card
-  missionCard: { marginHorizontal: 16, marginTop: 16, backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border, padding: 20 },
-  missionHeader: { flexDirection: "row", gap: 14, marginBottom: 16 },
-  missionEmoji: { fontSize: 40 },
-  missionCity: { fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: C.text },
-  missionDesc: { fontSize: 13, color: C.muted, lineHeight: 18, marginTop: 4 },
-  missionsTitle: { fontSize: 10, fontWeight: "900", color: C.muted, letterSpacing: 2, marginBottom: 12 },
+  cityIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
+  avatarOnCity: { position: "absolute", bottom: -4, right: -4, fontSize: 16 },
 
-  missionRow: { flexDirection: "row", alignItems: "center", backgroundColor: C.bg, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 14, marginBottom: 8, gap: 12 },
-  missionNum: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
-  missionNumText: { fontSize: 14, fontWeight: "800", color: C.muted },
-  missionName: { fontSize: 14, fontWeight: "700", color: C.text },
-  missionMeta: { fontSize: 11, color: C.muted, marginTop: 2 },
-  playBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  playBtnText: { color: "#fff", fontSize: 16 },
+  cityInfo: { flex: 1 },
+  cityName: { fontSize: 17, fontWeight: "800", color: C.text },
 
-  funFact: { backgroundColor: C.goldDim, borderRadius: 12, padding: 14, marginTop: 8 },
-  funFactText: { fontSize: 13, color: C.gold, lineHeight: 19 },
-  closeBtn: { marginTop: 12, alignItems: "center" },
-  closeBtnText: { fontSize: 14, color: C.muted, fontWeight: "600" },
+  cityProgress: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  cityProgressTrack: { flex: 1, height: 6, backgroundColor: C.bg3, borderRadius: 3, overflow: "hidden" },
+  cityProgressFill: { height: "100%", backgroundColor: C.gold, borderRadius: 3 },
+  cityProgressText: { fontSize: 11, fontWeight: "700", color: C.muted },
 
-  // Quick play
-  quickPlay: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 16, backgroundColor: C.card, borderRadius: 18, borderWidth: 1, padding: 18, gap: 14 },
-  quickLabel: { fontSize: 9, fontWeight: "900", color: C.muted, letterSpacing: 2 },
-  quickCity: { fontSize: 16, fontWeight: "700", color: C.text, marginTop: 4 },
-  quickMission: { fontSize: 13, color: C.muted, marginTop: 2 },
-  quickPlayBtn: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
-  quickPlayBtnText: { color: "#fff", fontSize: 22 },
+  // ── Items ──
+  itemsSection: { marginTop: 24 },
+  sectionLabel: { fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 12 },
+  itemsRow: { flexDirection: "row", gap: 10 },
+  itemCard: { width: 72, backgroundColor: C.card, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 10, alignItems: "center", gap: 6 },
+  itemName: { fontSize: 9, color: C.muted, textAlign: "center" },
 
-  tapHint: { fontSize: 12, color: C.muted, textAlign: "center", marginTop: 16, fontStyle: "italic" },
-
-  // Live conversation
-  liveCard: { flexDirection: "row", alignItems: "center", gap: 14, marginHorizontal: 16, marginTop: 16, backgroundColor: C.gold, borderRadius: 16, padding: 16 },
-  liveTitle: { fontSize: 15, fontWeight: "700", color: "#fff" },
-  liveSub: { fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 2 },
-
-  // Review
-  reviewCard: { flexDirection: "row", alignItems: "center", gap: 14, marginHorizontal: 16, marginTop: 16, backgroundColor: C.card, borderRadius: 16, borderWidth: 1, borderColor: C.goldLine, padding: 16 },
-  reviewTitle: { fontSize: 15, fontWeight: "700", color: C.text },
-  reviewSub: { fontSize: 12, color: C.muted, marginTop: 2 },
+  // ── CTA Button ──
+  ctaBar: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingBottom: SAFE_BOTTOM + 60, paddingTop: 12, backgroundColor: C.bg },
+  ctaButton: { backgroundColor: C.gold, borderRadius: 18, overflow: "hidden" },
+  ctaContent: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 18 },
+  ctaLabel: { fontSize: 10, fontWeight: "900", color: "#0D0E14", letterSpacing: 2 },
+  ctaTitle: { fontSize: 17, fontWeight: "800", color: "#0D0E14", marginTop: 3 },
+  ctaXP: { backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 },
+  ctaXPText: { fontSize: 13, fontWeight: "900", color: "#0D0E14" },
 });
