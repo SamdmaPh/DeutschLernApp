@@ -26,7 +26,7 @@ const CITY_POS: Record<string, { x: number; y: number }> = {
 
 const CHARACTER_LEVELS = [
   { emoji: "🎒", label: "Tourist" },
-  { emoji: "🧳", label: "Traveler" },
+  { emoji: "🧳", label: "Reisender" },
   { emoji: "🚲", label: "Local" },
   { emoji: "📰", label: "Pro" },
   { emoji: "🎩", label: "Master" },
@@ -78,7 +78,7 @@ export default function HomeScreen() {
       <View style={s.topBar}>
         <View style={s.charBadge}>
           <Text style={s.charEmoji}>{character.emoji}</Text>
-          <Text style={s.charLabel}>{name || "Traveler"}</Text>
+          <Text style={s.charLabel}>{name || "Reisender"}</Text>
         </View>
         <View style={s.statsRow}>
           <View style={s.statPill}>

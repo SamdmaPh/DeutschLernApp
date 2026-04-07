@@ -187,7 +187,7 @@ export default function LessonScreen() {
   if (writeTasks.length > 0) {
     cards.push({
       type: "write",
-      instruction: lesson.exercises[2].instruction || "Write the German sentence.",
+      instruction: lesson.exercises[2].instruction || "Schreib den deutschen Satz.",
       tasks: writeTasks.slice(0, 3),
     });
   }
@@ -468,7 +468,7 @@ export default function LessonScreen() {
                 <Text style={[s.optText, answered && i === card.answer && { color: C.green, fontWeight: "700" }]}>{opt}</Text>
               </TouchableOpacity>
             ))}
-            {answered && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>{correct ? "Correct! ✓" : "Continue →"}</Text></TouchableOpacity>}
+            {answered && <TouchableOpacity style={s.nextBtn} onPress={goNext}><Text style={s.nextBtnText}>{correct ? "Richtig! ✓" : "Weiter →"}</Text></TouchableOpacity>}
           </View>
         );
       }
@@ -498,7 +498,7 @@ export default function LessonScreen() {
                 ))}
                 {compAnswered && (
                   <TouchableOpacity style={s.nextBtn} onPress={() => { setCompIdx(compIdx + 1); }}>
-                    <Text style={s.nextBtnText}>{compCorrect ? "Correct! Next →" : "Next question →"}</Text>
+                    <Text style={s.nextBtnText}>{compCorrect ? "Richtig! Weiter →" : "Nächste Frage →"}</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -658,7 +658,7 @@ export default function LessonScreen() {
                 {/* Step 1: Listen */}
                 <TouchableOpacity style={s.pronListenBtn} onPress={() => playWord(currentWord.de)} disabled={pronPlaying} activeOpacity={0.7}>
                   <Text style={s.pronListenIcon}>{pronPlaying ? "⏳" : "🔊"}</Text>
-                  <Text style={s.pronListenText}>{pronPlaying ? "Playing..." : "Step 1: Listen"}</Text>
+                  <Text style={s.pronListenText}>{pronPlaying ? "Spielt ab..." : "Schritt 1: Anhören"}</Text>
                 </TouchableOpacity>
 
                 {/* Step 2: Speak or Type */}
@@ -677,7 +677,7 @@ export default function LessonScreen() {
                       }
                     }} disabled={pronPlaying} activeOpacity={0.7}>
                       <Text style={s.bigMicIcon}>{pronPlaying ? "⏳ Listening..." : "🎤"}</Text>
-                      <Text style={s.bigMicText}>{pronPlaying ? "Speak now!" : "Tap to speak"}</Text>
+                      <Text style={s.bigMicText}>{pronPlaying ? "Sprich jetzt!" : "Tippe & sprich"}</Text>
                     </TouchableOpacity>
 
                     {/* Or type fallback */}
@@ -687,7 +687,7 @@ export default function LessonScreen() {
                         style={[s.input, { flex: 1 }]}
                         value={pronUserInput}
                         onChangeText={setPronUserInput}
-                        placeholder="Type what you said..."
+                        placeholder="Was hast du gesagt..."
                         placeholderTextColor={C.muted}
                         autoCapitalize="none"
                       />
@@ -740,7 +740,7 @@ export default function LessonScreen() {
                 {/* Next word button after check */}
                 {pronChecked && (
                   <TouchableOpacity style={[s.nextBtn, { marginTop: 12 }]} onPress={markDone}>
-                    <Text style={s.nextBtnText}>{pronIdx < (card.words?.length || 0) - 1 ? "Next word →" : "Done! →"}</Text>
+                    <Text style={s.nextBtnText}>{pronIdx < (card.words?.length || 0) - 1 ? "Nächstes Wort →" : "Fertig! →"}</Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -1113,7 +1113,7 @@ export default function LessonScreen() {
                 {woChecked && !isCorrect && <Text style={s.wrongFeedback}>Correct: "{currentPhrase}"</Text>}
                 {woChecked && (
                   <TouchableOpacity style={s.nextBtn} onPress={() => { setWoIdx(woIdx + 1); setWoWords([]); setWoChecked(false); }}>
-                    <Text style={s.nextBtnText}>{woIdx < (card.phrases?.length || 0) - 1 ? "Next sentence →" : "Done! →"}</Text>
+                    <Text style={s.nextBtnText}>{woIdx < (card.phrases?.length || 0) - 1 ? "Nächster Satz →" : "Fertig! →"}</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -1747,7 +1747,7 @@ export default function LessonScreen() {
           )}
           {step < total - 1 && (
             <TouchableOpacity style={[s.bottomBtn, step === 0 && { flex: 1 }]} onPress={goNext} activeOpacity={0.85}>
-              <Text style={s.bottomBtnText}>{step === 0 ? "Let's go! →" : "Continue →"}</Text>
+              <Text style={s.bottomBtnText}>{step === 0 ? "Los geht's! →" : "Weiter →"}</Text>
             </TouchableOpacity>
           )}
         </View>
