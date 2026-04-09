@@ -153,7 +153,7 @@ export default function LessonV2Screen() {
   };
 
   // Phase labels
-  const PHASE_LABELS = ["Szene", "Hören", "Lesen", "Üben", "Sprechen", "Schreiben", "Abschluss"];
+  const PHASE_LABELS = ["Scene", "Listen", "Read", "Practice", "Speak", "Write", "Done"];
 
   return (
     <View style={s.root}>
@@ -169,37 +169,66 @@ export default function LessonV2Screen() {
 
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
-        {/* ═══ 1. SZENE ═══ */}
+        {/* ═══ 1. SZENE (Cinematic Intro) ═══ */}
         {step === 0 && (
           <View>
+            {/* Hero image with overlay */}
             {img ? (
               <View style={{ borderRadius: 20, overflow: "hidden", marginBottom: 4 }}>
-                <Image source={{ uri: img }} style={{ width: "100%", height: 240 }} resizeMode="cover" />
-                <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: "rgba(0,0,0,0.6)" }}>
-                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 3 }}>LEKTION {lesson.order_index}</Text>
-                  <Text style={{ fontFamily: SERIF, fontSize: 22, fontWeight: "700", color: "#FFF", marginTop: 4 }}>{lesson.title_de || lesson.title}</Text>
+                <Image source={{ uri: img }} style={{ width: "100%", height: 260 }} resizeMode="cover" />
+                <View style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 22, backgroundColor: "rgba(0,0,0,0.65)" }}>
+                  <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 3 }}>LESSON {lesson.order_index}</Text>
+                  <Text style={{ fontFamily: SERIF, fontSize: 24, fontWeight: "700", color: "#FFF", marginTop: 4 }}>{lesson.title}</Text>
                 </View>
               </View>
             ) : (
               <View style={{ alignItems: "center", marginBottom: 16 }}>
-                <Text style={{ fontSize: 56 }}>{story.hookEmoji}</Text>
-                <Text style={{ fontFamily: SERIF, fontSize: 24, fontWeight: "700", color: C.text, marginTop: 8, textAlign: "center" }}>{lesson.title_de || lesson.title}</Text>
+                <Text style={{ fontSize: 64 }}>{story.hookEmoji}</Text>
+                <Text style={{ fontFamily: SERIF, fontSize: 24, fontWeight: "700", color: C.text, marginTop: 8, textAlign: "center" }}>{lesson.title}</Text>
               </View>
             )}
-            <View style={s.storyBox}><Text style={s.storyText}>{story.hookNarration}</Text></View>
-            <View style={s.npcBox}>
-              <Text style={{ fontSize: 36 }}>{story.npcEmoji}</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 1.5 }}>DU TRIFFST</Text>
-                <Text style={{ fontSize: 17, fontWeight: "700", color: C.text, marginTop: 2 }}>{story.npcName}</Text>
-                <TouchableOpacity onPress={() => playNPC(story.npcGreeting)}>
-                  <Text style={{ fontSize: 13, color: C.muted, fontStyle: "italic", marginTop: 4 }}>🔊 "{story.npcGreeting}"</Text>
-                </TouchableOpacity>
-              </View>
+
+            {/* English narration — the story in the student's language */}
+            <View style={{ backgroundColor: "#1A1A2E", borderRadius: 18, padding: 22, marginTop: 16 }}>
+              <TouchableOpacity onPress={() => playTTS(story.hookNarrationEn || story.hookNarration, "female")} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <Text style={{ fontSize: 16 }}>🔊</Text>
+                <Text style={{ fontSize: 12, color: C.gold, fontWeight: "700" }}>Listen to the story</Text>
+              </TouchableOpacity>
+              <Text style={{ fontSize: 16, color: "#E2E8F0", lineHeight: 28 }}>{story.hookNarrationEn || story.hookNarration}</Text>
             </View>
-            {/* Play ambient sound for this scene */}
+
+            {/* NPC speaks German — with translation */}
+            <View style={{ backgroundColor: C.card, borderRadius: 18, padding: 20, marginTop: 14, borderWidth: 1, borderColor: C.goldLine }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+                <Text style={{ fontSize: 40 }}>{story.npcEmoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 1.5 }}>YOU MEET</Text>
+                  <Text style={{ fontSize: 18, fontWeight: "700", color: C.text, marginTop: 2 }}>{story.npcName}</Text>
+                </View>
+              </View>
+
+              {/* NPC's first line in German + translation */}
+              <TouchableOpacity onPress={() => playNPC(story.npcGreeting)} style={{ backgroundColor: C.bg2, borderRadius: 14, padding: 16, marginTop: 14 }}>
+                <Text style={{ fontSize: 20, fontWeight: "700", color: C.text }}>🔊 "{story.npcGreeting}"</Text>
+                <Text style={{ fontSize: 14, color: C.muted, marginTop: 6, fontStyle: "italic" }}>
+                  {story.npcGreeting === "Guten Tag! Wohin?" ? '"Good day! Where to?"' :
+                   story.npcGreeting === "Guten Abend! Haben Sie eine Reservierung?" ? '"Good evening! Do you have a reservation?"' :
+                   story.npcGreeting === "Guten Morgen! Was möchten Sie bestellen?" ? '"Good morning! What would you like to order?"' :
+                   `"${story.npcGreeting}"`}
+                </Text>
+                <Text style={{ fontSize: 11, color: C.gold, marginTop: 8 }}>Tap to hear it spoken</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Mission in English */}
+            <View style={{ backgroundColor: C.goldDim, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: C.gold, padding: 18, marginTop: 14 }}>
+              <Text style={{ fontSize: 10, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 6 }}>YOUR MISSION</Text>
+              <Text style={{ fontSize: 15, color: C.text, lineHeight: 22 }}>{lesson.description}</Text>
+            </View>
+
+            {/* Ambient sound */}
             <TouchableOpacity style={{ alignItems: "center", marginTop: 14, backgroundColor: C.bg2, borderRadius: 14, padding: 14 }} onPress={playAmbient}>
-              <Text style={{ fontSize: 13, color: C.muted }}>🎧 Atmosphäre anhören</Text>
+              <Text style={{ fontSize: 13, color: C.muted }}>🎧 Hear the atmosphere</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -207,12 +236,13 @@ export default function LessonV2Screen() {
         {/* ═══ 2. HÖREN (Listening) ═══ */}
         {step === 1 && (
           <View>
-            <View style={s.transitionBox}><Text style={s.transitionText}>{story.listenIntro}</Text></View>
+            <View style={s.transitionBox}><Text style={s.transitionText}>{story.listenIntroEn || story.listenIntro}</Text></View>
             <View style={s.darkCard}>
-              <Text style={s.darkLabel}>🎧 HÖRTEXT</Text>
+              <Text style={s.darkLabel}>🎧 LISTENING</Text>
+              <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 14 }}>Listen to the German text. Don't worry if you don't understand everything — focus on the words you recognize!</Text>
               <TouchableOpacity style={s.playBtn} onPress={async () => { setAudioPlaying(true); await playNPC(fullGerman); setAudioPlaying(false); setListened(true); }} disabled={audioPlaying}>
                 <Text style={{ fontSize: 24 }}>{audioPlaying ? "🔊" : "▶️"}</Text>
-                <Text style={s.playBtnText}>{audioPlaying ? "Hör zu..." : listened ? "Nochmal anhören" : "Anhören"}</Text>
+                <Text style={s.playBtnText}>{audioPlaying ? "Playing..." : listened ? "Listen again" : "Play"}</Text>
               </TouchableOpacity>
               <Text style={s.darkText}>{fullGerman}</Text>
               {showTranslation ? (
@@ -222,13 +252,13 @@ export default function LessonV2Screen() {
                 </View>
               ) : (
                 <TouchableOpacity style={{ marginTop: 16, alignItems: "center" }} onPress={() => setShowTranslation(true)}>
-                  <Text style={{ fontSize: 14, color: C.gold }}>Übersetzung anzeigen ↓</Text>
+                  <Text style={{ fontSize: 14, color: C.gold }}>Show translation ↓</Text>
                 </TouchableOpacity>
               )}
             </View>
             {highlights.length > 0 && (
               <View style={s.keywordsBox}>
-                <Text style={s.keywordsLabel}>SCHLÜSSELWÖRTER</Text>
+                <Text style={s.keywordsLabel}>KEY WORDS — tap to hear</Text>
                 {highlights.slice(0, 8).map((h: string, i: number) => {
                   const [de, en] = h.split("::").map((x: string) => x.trim());
                   return (
@@ -246,8 +276,8 @@ export default function LessonV2Screen() {
         {/* ═══ 3. LESEN (Reading) ═══ */}
         {step === 2 && (
           <View>
-            <Text style={s.sectionTitle}>📖 LESEVERSTÄNDNIS</Text>
-            <Text style={s.subtitle}>Lies den Text und beantworte die Fragen.</Text>
+            <Text style={s.sectionTitle}>📖 READING</Text>
+            <Text style={s.subtitle}>Read the German text and answer the questions.</Text>
             <View style={s.readingBox}><Text style={s.readingText}>{fullGerman}</Text></View>
             {compTasks.map((task: any, i: number) => {
               const answered = readAnswers[i] !== undefined;

@@ -24,8 +24,10 @@ export interface LessonStory {
   hookNarration: string;
   hookEmoji: string;
   hookVideo?: string | number;
+  hookNarrationEn: string;   // English narration for A1 beginners
   // Zwischentexte zwischen Phasen
   listenIntro: string;
+  listenIntroEn: string;
   checkIntro: string;
   practiceIntro: string;
   speakIntro: string;
@@ -44,9 +46,11 @@ export const STORY_DATA: Record<string, LessonStory> = {
   "a1-0-1": {
     lessonId: "a1-0-1",
     hookNarration: "Das Flugzeug ist gelandet. Du stehst am Flughafen Berlin Brandenburg — allein, mit einem Koffer und null Deutschkenntnissen. Draußen warten die Taxis. Deine Mission: finde ein Taxi und komm zum Hostel. Los geht's!",
+    hookNarrationEn: "You just landed in Berlin. You're standing at Berlin Brandenburg Airport — alone, with a suitcase and zero German. Outside, the taxis are waiting. Your mission: find a taxi and get to your hostel. Let's go!",
     hookEmoji: "✈️",
     hookVideo: require("../assets/videos/l1-flughafen.mp4"),
     listenIntro: "Ein Taxifahrer winkt dir zu. Er sagt etwas auf Deutsch. Hör genau zu — was sagt er?",
+    listenIntroEn: "A taxi driver waves at you. He says something in German. Listen carefully — what is he saying?",
     checkIntro: "Hast du alles verstanden? Mal sehen...",
     practiceIntro: "Jetzt bist du dran. Übe die Wörter die du gerade gehört hast.",
     speakIntro: "Der Taxifahrer wartet. Zeit, WIRKLICH Deutsch zu sprechen — mit echtem Gespräch!",
@@ -186,8 +190,10 @@ export const getStory = (lessonId: string): LessonStory => {
   return {
     lessonId,
     hookNarration: "Ein neues Abenteuer wartet auf dich. Bist du bereit?",
+    hookNarrationEn: "A new adventure awaits. Are you ready?",
     hookEmoji: "🗺️",
     listenIntro: "Hör dir das Gespräch an.",
+    listenIntroEn: "Listen to the conversation.",
     checkIntro: "Hast du alles verstanden?",
     practiceIntro: "Jetzt bist du dran — übe!",
     speakIntro: "Zeit zu sprechen!",
