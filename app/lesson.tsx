@@ -299,8 +299,8 @@ export default function LessonScreen() {
             {story.hookVideo && VideoComponent ? (
               <View style={{ borderRadius: 20, overflow: "hidden", marginBottom: 4 }}>
                 <VideoComponent.Video
-                  source={{ uri: story.hookVideo }}
-                  style={{ width: "100%", height: 220, borderRadius: 20 }}
+                  source={typeof story.hookVideo === "string" ? { uri: story.hookVideo } : story.hookVideo}
+                  style={{ width: "100%", height: 260, borderRadius: 20 }}
                   resizeMode={VideoComponent.ResizeMode?.COVER || "cover"}
                   shouldPlay
                   isLooping

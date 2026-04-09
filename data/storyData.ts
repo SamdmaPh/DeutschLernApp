@@ -23,7 +23,7 @@ export interface LessonStory {
   // Phase 1: Hook — cinematic intro
   hookNarration: string;
   hookEmoji: string;
-  hookVideo?: string;
+  hookVideo?: string | number;
   // Zwischentexte zwischen Phasen
   listenIntro: string;
   checkIntro: string;
@@ -45,7 +45,7 @@ export const STORY_DATA: Record<string, LessonStory> = {
     lessonId: "a1-0-1",
     hookNarration: "Das Flugzeug ist gelandet. Du stehst am Flughafen Berlin Brandenburg — allein, mit einem Koffer und null Deutschkenntnissen. Draußen warten die Taxis. Deine Mission: finde ein Taxi und komm zum Hostel. Los geht's!",
     hookEmoji: "✈️",
-    hookVideo: "https://videos.pexels.com/video-files/2029036/2029036-sd_640_360_30fps.mp4",
+    hookVideo: require("../assets/videos/l1-flughafen.mp4"),
     listenIntro: "Ein Taxifahrer winkt dir zu. Er sagt etwas auf Deutsch. Hör genau zu — was sagt er?",
     checkIntro: "Hast du alles verstanden? Mal sehen...",
     practiceIntro: "Jetzt bist du dran. Übe die Wörter die du gerade gehört hast.",
