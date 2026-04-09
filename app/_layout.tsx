@@ -72,6 +72,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ animation: anim("fade") }} />
         <Stack.Screen name="onboarding" options={{ animation: anim("fade"), gestureEnabled: false }} />
         <Stack.Screen name="lesson" options={{ animation: anim("slide_from_bottom"), presentation: "modal" }} />
+        <Stack.Screen name="lesson-v2" options={{ animation: anim("slide_from_bottom"), presentation: "modal" }} />
         <Stack.Screen name="settings" options={{ animation: anim("slide_from_right") }} />
         <Stack.Screen name="placement" options={{ animation: anim("slide_from_bottom") }} />
         <Stack.Screen name="word-of-day" options={{ animation: anim("slide_from_right") }} />

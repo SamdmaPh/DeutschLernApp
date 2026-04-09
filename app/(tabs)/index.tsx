@@ -59,7 +59,7 @@ export default function HeuteScreen() {
         {nextLesson && (
           <TouchableOpacity
             style={s.heroCard}
-            onPress={() => router.push({ pathname: "/lesson", params: { lessonId: nextLesson.id } })}
+            onPress={() => router.push({ pathname: "/lesson-v2", params: { lessonId: nextLesson.id } })}
             activeOpacity={0.85}
           >
             <Text style={s.heroLabel}>NÄCHSTE LEKTION</Text>
