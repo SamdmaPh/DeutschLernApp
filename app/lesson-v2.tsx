@@ -334,11 +334,10 @@ export default function LessonV2() {
             </View>
           )}
 
-          {/* Grammar illustration placeholder — replace with ElevenLabs generated image */}
-          <View style={{ backgroundColor: C.bg2, borderRadius: 16, height: 180, alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 1, borderStyle: "dashed" as any, borderColor: C.border }}>
-            <Text style={{ fontSize: 44 }}>{story.npcEmoji}</Text>
-            <Text style={{ fontSize: 12, color: C.muted, marginTop: 8, textAlign: "center", paddingHorizontal: 20 }}>Grammar illustration coming soon{"\n"}(Generate on ElevenLabs Image)</Text>
-          </View>
+          {/* Grammar illustrations */}
+          <Image source={require("../assets/images/l1-grammar-scene.png")} style={{ width: "100%", height: 200, borderRadius: 16, marginBottom: 12 }} resizeMode="contain" />
+          <Image source={require("../assets/images/l1-grammar-rules.png")} style={{ width: "100%", height: 160, borderRadius: 16, marginBottom: 12 }} resizeMode="contain" />
+          <Image source={require("../assets/images/l1-grammar-vocab.png")} style={{ width: "100%", height: 160, borderRadius: 16, marginBottom: 16 }} resizeMode="contain" />
 
           {/* Fill in the blank */}
           <Text style={[s.secTitle, { marginTop: 20 }]}>FILL IN THE BLANK</Text>
