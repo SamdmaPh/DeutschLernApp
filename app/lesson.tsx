@@ -11,7 +11,7 @@ import { AI, ChatMessage } from "../services/ai";
 import { TTS } from "../services/tts";
 import { ElevenLabs, CHARACTER_VOICES, VOICES } from "../services/elevenlabs";
 import { SRS } from "../services/srs";
-import { Avatar, ALL_ITEMS, AVATAR_STAGES } from "../services/avatar";
+// Avatar/Items removed — no gamification for now
 import { getStory } from "../data/storyData";
 import { C, SAFE_TOP, SERIF } from "../theme";
 
@@ -1617,10 +1617,10 @@ export default function LessonScreen() {
                 {/* Consequence 3: Character reward */}
                 <View style={[s.rateAction, { marginTop: 8 }]}>
                   <Text style={s.rateActionText}>
-                    {selfRating <= 2 ? "📝 Dein Avatar übt diese Wörter morgen nochmal" :
-                     selfRating === 3 ? "🗺️ Dein Avatar bewegt sich etwas weiter auf der Karte" :
-                     selfRating === 4 ? "🌭 Dein Avatar bekommt eine Bratwurst als Belohnung!" :
-                     "🏆 Dein Avatar hat einen neuen Skill freigeschaltet!"}
+                    {selfRating <= 2 ? "📝 Diese Lektion wird zur täglichen Review hinzugefügt" :
+                     selfRating === 3 ? "👍 Guter Start! Weiter so!" :
+                     selfRating === 4 ? "🎉 Super gemacht!" :
+                     "🏆 Perfekt! Du bist bereit für die nächste Lektion!"}
                   </Text>
                 </View>
               </View>
@@ -1630,7 +1630,7 @@ export default function LessonScreen() {
 
       // ── 12. CELEBRATION ──
       case "finish": {
-        const itemForLesson = ALL_ITEMS.find(i => i.lessonId === lesson.id);
+        const itemForLesson = null; // gamification removed
         const nextLesson = ALL_STATIC_LESSONS.find((l: any) => l.order_index === lesson.order_index + 1);
         const nextLessonTitle = nextLesson?.title_de || nextLesson?.title;
 
@@ -1676,8 +1676,7 @@ export default function LessonScreen() {
               const totalEarned = totalXP + card.xp;
               await Progress.addXP(totalEarned);
               await Progress.markComplete(lesson.id);
-              // Avatar system: complete lesson, earn items, progress
-              await Avatar.completeLesson(lesson.id, totalEarned);
+              // gamification removed
               if (lesson.vocabulary?.core) {
                 const words = lesson.vocabulary.core.map((w: string) => { const p = w.split("::"); return { word: p[0]?.trim() || w, meaning: p[1]?.trim() || "" }; });
                 await SRS.addWordsFromLesson(lesson.id, words);

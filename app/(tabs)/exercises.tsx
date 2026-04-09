@@ -3,7 +3,6 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 
 import { useRouter, useFocusEffect } from "expo-router";
 import { Progress } from "../../services/progress";
 import { ALL_STATIC_LESSONS } from "../../data/lessonData";
-import { JOURNEY_CITIES } from "../../data/journeyData";
 import { C, SAFE_TOP, SERIF } from "../../theme";
 
 const CONVERSATION_TOPICS = [
@@ -23,7 +22,7 @@ export default function UebenScreen() {
     Progress.getCompleted().then(setDone);
   }, []));
 
-  const cities = JOURNEY_CITIES.filter(c => c.level === "A1" || c.level === "A2");
+  const sortedLessons = [...ALL_STATIC_LESSONS].sort((a: any, b: any) => a.order_index - b.order_index);
 
   return (
     <View style={s.root}>
@@ -68,30 +67,24 @@ export default function UebenScreen() {
 
         {/* Alle Lektionen */}
         <Text style={s.sectionLabel}>ALLE LEKTIONEN</Text>
-        {cities.map(city => {
-          const lessons = ALL_STATIC_LESSONS.filter((l: any) => city.lessonIds.includes(l.id)).sort((a: any, b: any) => a.order_index - b.order_index);
-          const completed = city.lessonIds.filter(id => done.includes(id)).length;
+        {sortedLessons.map((lesson: any) => {
+          const isDone = done.includes(lesson.id);
           return (
-            <View key={city.id} style={s.citySection}>
-              <View style={s.cityHeader}>
-                <Text style={{ fontSize: 20 }}>{city.emoji}</Text>
-                <Text style={s.cityName}>{city.name}</Text>
-                <Text style={s.cityCount}>{completed}/{city.lessonIds.length}</Text>
+            <TouchableOpacity
+              key={lesson.id}
+              style={[s.lessonRow, isDone && s.lessonRowDone]}
+              onPress={() => router.push({ pathname: "/lesson", params: { lessonId: lesson.id } })}
+              activeOpacity={0.7}
+            >
+              <View style={[s.lessonDot, isDone && s.lessonDotDone]}>
+                {isDone && <Text style={{ fontSize: 10, color: "#FFF" }}>✓</Text>}
               </View>
-              {lessons.map((lesson: any) => {
-                const isDone = done.includes(lesson.id);
-                return (
-                  <TouchableOpacity key={lesson.id} style={[s.lessonRow, isDone && s.lessonRowDone]} onPress={() => router.push({ pathname: "/lesson", params: { lessonId: lesson.id } })} activeOpacity={0.7}>
-                    <View style={[s.lessonDot, isDone && s.lessonDotDone]}>{isDone && <Text style={{ fontSize: 10, color: "#FFF" }}>✓</Text>}</View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[s.lessonTitle, isDone && { color: C.muted }]}>{lesson.title_de || lesson.title}</Text>
-                      <Text style={s.lessonSub} numberOfLines={1}>{lesson.description}</Text>
-                    </View>
-                    <Text style={s.lessonXP}>+{lesson.xp_reward || 50}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[s.lessonTitle, isDone && { color: C.muted }]}>{lesson.title_de || lesson.title}</Text>
+                <Text style={s.lessonSub} numberOfLines={1}>{lesson.description}</Text>
+              </View>
+              <Text style={s.lessonLevel}>{lesson.level}</Text>
+            </TouchableOpacity>
           );
         })}
         <View style={{ height: 30 }} />
@@ -115,15 +108,11 @@ const s = StyleSheet.create({
   reviewCard: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderRadius: 16, padding: 16, marginBottom: 24, gap: 12, borderWidth: 1, borderColor: C.border },
   reviewTitle: { fontSize: 15, fontWeight: "700", color: C.text },
   reviewSub: { fontSize: 12, color: C.muted, marginTop: 2 },
-  citySection: { marginBottom: 20 },
-  cityHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
-  cityName: { fontSize: 16, fontWeight: "800", color: C.text, flex: 1 },
-  cityCount: { fontSize: 12, fontWeight: "700", color: C.muted },
   lessonRow: { flexDirection: "row", alignItems: "center", backgroundColor: C.card, borderRadius: 14, padding: 14, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: C.border },
   lessonRowDone: { borderColor: C.greenLine },
   lessonDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: C.border, alignItems: "center", justifyContent: "center" },
   lessonDotDone: { backgroundColor: C.green, borderColor: C.green },
   lessonTitle: { fontSize: 15, fontWeight: "700", color: C.text },
   lessonSub: { fontSize: 12, color: C.muted, marginTop: 2 },
-  lessonXP: { fontSize: 12, fontWeight: "800", color: C.gold },
+  lessonLevel: { fontSize: 11, fontWeight: "800", color: C.gold },
 });
