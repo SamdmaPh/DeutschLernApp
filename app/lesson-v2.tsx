@@ -136,52 +136,86 @@ export default function LessonV2() {
 
         {/* ═══ 1. SCENE ═══ */}
         {step === 0 && <>
-          {/* Image */}
-          {img ? (
-            <View style={s.imgWrap}>
-              <Image source={{ uri: img }} style={s.img} resizeMode="cover" />
-              <View style={s.imgOverlay}>
-                <Text style={s.imgLabel}>LESSON {lesson.order_index}</Text>
-                <Text style={s.imgTitle}>{lesson.title}</Text>
-              </View>
-            </View>
-          ) : (
-            <View style={{ alignItems: "center", marginBottom: 20 }}>
-              <Text style={{ fontSize: 64 }}>{story.hookEmoji}</Text>
-              <Text style={s.imgTitle}>{lesson.title}</Text>
-            </View>
-          )}
+          {/* Video or Image hero */}
+          {(() => {
+            // Try to load video component
+            const VideoComp = (() => { try { const { Video, ResizeMode } = require("expo-av"); return { Video, ResizeMode }; } catch { return null; } })();
+            const videoSource = story.hookVideo;
 
-          {/* English narration */}
+            if (videoSource && VideoComp) {
+              return (
+                <View style={s.imgWrap}>
+                  <VideoComp.Video
+                    source={typeof videoSource === "string" ? { uri: videoSource } : videoSource}
+                    style={{ width: "100%", height: 280, borderRadius: 20 }}
+                    resizeMode={VideoComp.ResizeMode?.COVER || "cover"}
+                    shouldPlay isLooping isMuted={false}
+                  />
+                  <View style={s.imgOverlay}>
+                    <Text style={s.imgLabel}>LESSON {lesson.order_index}</Text>
+                    <Text style={s.imgTitle}>{lesson.title}</Text>
+                  </View>
+                </View>
+              );
+            }
+            if (img) {
+              return (
+                <View style={s.imgWrap}>
+                  <Image source={{ uri: img }} style={s.img} resizeMode="cover" />
+                  <View style={s.imgOverlay}>
+                    <Text style={s.imgLabel}>LESSON {lesson.order_index}</Text>
+                    <Text style={s.imgTitle}>{lesson.title}</Text>
+                  </View>
+                </View>
+              );
+            }
+            return (
+              <View style={{ alignItems: "center", marginBottom: 20 }}>
+                <Text style={{ fontSize: 64 }}>{story.hookEmoji}</Text>
+                <Text style={[s.imgTitle, { color: C.text }]}>{lesson.title}</Text>
+              </View>
+            );
+          })()}
+
+          {/* English narration — with audio button */}
           <View style={s.dark}>
-            <TouchableOpacity onPress={() => speakEn(story.hookNarrationEn || lesson.description)} style={s.listenRow}>
-              <Text style={{ fontSize: 16 }}>🔊</Text>
-              <Text style={s.listenLabel}>Listen to the story</Text>
+            <TouchableOpacity onPress={async () => {
+              // Play ambient + narrator together
+              if (SFX[lesson.id]) ElevenLabs.playSoundEffect(SFX[lesson.id], 8);
+              await speakEn(story.hookNarrationEn || lesson.description);
+            }} style={s.listenRow}>
+              <Text style={{ fontSize: 20 }}>▶</Text>
+              <Text style={s.listenLabel}>Play the story</Text>
             </TouchableOpacity>
             <Text style={s.darkTxt}>{story.hookNarrationEn || lesson.description}</Text>
           </View>
 
-          {/* NPC intro */}
+          {/* NPC speaks German — tap to hear + translation */}
           <View style={s.npcCard}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              <Text style={{ fontSize: 40 }}>{story.npcEmoji}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 }}>
+              <Text style={{ fontSize: 44 }}>{story.npcEmoji}</Text>
               <View style={{ flex: 1 }}>
                 <Text style={s.npcLabel}>YOU MEET</Text>
                 <Text style={s.npcName}>{story.npcName}</Text>
               </View>
             </View>
+
+            <Text style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>A {story.npcName.toLowerCase()} approaches you and says:</Text>
+
             <TouchableOpacity onPress={() => speak(story.npcGreeting)} style={s.npcBubble}>
               <Text style={s.npcGreetDe}>🔊 "{story.npcGreeting}"</Text>
               <Text style={s.npcGreetEn}>
                 {story.npcGreeting === "Guten Tag! Wohin?" ? '"Good day! Where to?"' :
                  story.npcGreeting === "Guten Abend! Haben Sie eine Reservierung?" ? '"Good evening! Do you have a reservation?"' :
                  story.npcGreeting === "Guten Morgen! Was möchten Sie bestellen?" ? '"Good morning! What would you like to order?"' :
-                 story.npcGreeting === "Das macht 12,50 Euro. Brauchen Sie eine Tüte?" ? '"That\'ll be 12.50 euros. Need a bag?"' :
+                 story.npcGreeting === "Das macht 12,50 Euro. Brauchen Sie eine Tüte?" ? '"That\'ll be €12.50. Need a bag?"' :
                  story.npcGreeting === "Die Fahrkarte bitte! Wohin fahren Sie?" ? '"Ticket please! Where are you going?"' :
                  '"(tap to hear)"'}
               </Text>
-              <Text style={{ fontSize: 11, color: C.gold, marginTop: 8 }}>Tap to hear it</Text>
+              <Text style={{ fontSize: 11, color: C.gold, marginTop: 10 }}>🔊 Tap to hear it spoken</Text>
             </TouchableOpacity>
+
+            <Text style={{ fontSize: 12, color: C.muted, marginTop: 12, fontStyle: "italic" }}>Don't worry — you'll learn exactly what to say!</Text>
           </View>
 
           {/* Mission */}
@@ -189,13 +223,6 @@ export default function LessonV2() {
             <Text style={s.missionLabel}>YOUR MISSION</Text>
             <Text style={s.missionTxt}>{lesson.description}</Text>
           </View>
-
-          {/* Ambient */}
-          {SFX[lesson.id] && (
-            <TouchableOpacity style={s.ambient} onPress={() => ElevenLabs.playSoundEffect(SFX[lesson.id], 5)}>
-              <Text style={{ fontSize: 13, color: C.muted }}>🎧 Hear the atmosphere</Text>
-            </TouchableOpacity>
-          )}
         </>}
 
         {/* ═══ 2. LISTEN ═══ */}
@@ -301,8 +328,17 @@ export default function LessonV2() {
                   <Text style={s.tVal}>{p.english_trick || p.example || p.conjugation || ""}</Text>
                 </TouchableOpacity>
               ))}
+              <View style={{ padding: 10, alignItems: "center" }}>
+                <Text style={{ fontSize: 11, color: C.muted }}>🔊 Tap any row to hear it</Text>
+              </View>
             </View>
           )}
+
+          {/* Grammar illustration placeholder — replace with ElevenLabs generated image */}
+          <View style={{ backgroundColor: C.bg2, borderRadius: 16, height: 180, alignItems: "center", justifyContent: "center", marginBottom: 16, borderWidth: 1, borderStyle: "dashed" as any, borderColor: C.border }}>
+            <Text style={{ fontSize: 44 }}>{story.npcEmoji}</Text>
+            <Text style={{ fontSize: 12, color: C.muted, marginTop: 8, textAlign: "center", paddingHorizontal: 20 }}>Grammar illustration coming soon{"\n"}(Generate on ElevenLabs Image)</Text>
+          </View>
 
           {/* Fill in the blank */}
           <Text style={[s.secTitle, { marginTop: 20 }]}>FILL IN THE BLANK</Text>
