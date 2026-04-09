@@ -5,10 +5,20 @@ import { ALL_STATIC_LESSONS } from "../data/lessonData";
 import { SITUATION_IMAGES } from "../data/images";
 import { Progress } from "../services/progress";
 import { SRS } from "../services/srs";
+import { ElevenLabs, CHARACTER_VOICES, VOICES } from "../services/elevenlabs";
 import { getStory } from "../data/storyData";
 import { C, SAFE_TOP, SERIF } from "../theme";
 
 const BACKEND = "https://deutschlernappbackend2-production.up.railway.app";
+
+// Sound effect prompts per lesson situation
+const SFX_PROMPTS: Record<string, string> = {
+  "a1-0-1": "busy airport terminal, flight announcements, luggage wheels rolling, crowd murmur",
+  "a1-0-2": "hotel lobby ambient, quiet reception, door opening, key card beep",
+  "a1-1-1": "cozy cafe ambient, coffee machine, cups clinking, quiet chatter",
+  "a1-1-2": "supermarket ambient, shopping cart, checkout beep, bags rustling",
+  "a1-1-3": "train station ambient, train arriving, platform announcement, crowd",
+};
 
 // ═══════════════════════════════════════════════════════════════
 // LESSON V2 — 7 Screens: Szene, Hören, Lesen, Üben, Sprechen, Schreiben, Abschluss
@@ -81,17 +91,21 @@ export default function LessonV2Screen() {
   const goBack = () => { if (step > 0) { setStep(step - 1); scrollRef.current?.scrollTo({ y: 0 }); } };
   const pct = ((step + 1) / TOTAL) * 100;
 
-  // TTS helper
+  // TTS via ElevenLabs directly
   const playTTS = async (text: string, voice = "male") => {
-    try {
-      const res = await fetch(`${BACKEND}/api/speak`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, voice }) });
-      const data = await res.json();
-      if (data.audio) {
-        const A = await import("expo-av");
-        await A.Audio.setAudioModeAsync({ playsInSilentModeIOS: true, allowsRecordingIOS: false });
-        await A.Audio.Sound.createAsync({ uri: `data:audio/mpeg;base64,${data.audio}` }, { shouldPlay: true });
-      }
-    } catch {}
+    const voiceId = voice === "male" ? VOICES.male : VOICES.female;
+    await ElevenLabs.playText(text, voiceId);
+  };
+
+  // Play NPC with character voice
+  const playNPC = async (text: string) => {
+    await ElevenLabs.playCharacterLine(story.npcName, text);
+  };
+
+  // Play ambient sound effect for this lesson
+  const playAmbient = () => {
+    const sfx = SFX_PROMPTS[lesson.id];
+    if (sfx) ElevenLabs.playSoundEffect(sfx, 5);
   };
 
   // Quest helpers
@@ -101,7 +115,7 @@ export default function LessonV2Screen() {
       const res = await fetch(`${BACKEND}/api/conversation`, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: [{ role: "user", content: `Du bist ${story.npcName}. Situation: "${lesson.description}". Sprich einfaches Deutsch (A1). Begrüße den Schüler. Nur 1-2 kurze Sätze.` }], topic: lesson.description, level: "A1" }) });
       const data = await res.json();
-      if (data.text) { setDialogHistory([{ speaker: story.npcName, text: data.text }]); playTTS(data.text); }
+      if (data.text) { setDialogHistory([{ speaker: story.npcName, text: data.text }]); playNPC(data.text); }
     } catch {} setChatLoading(false);
   };
 
@@ -114,7 +128,7 @@ export default function LessonV2Screen() {
       const res = await fetch(`${BACKEND}/api/conversation`, { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: allMsgs, topic: lesson.description, level: "A1" }) });
       const data = await res.json();
-      if (data.text) { setDialogHistory(h => [...h, { speaker: story.npcName, text: data.text }]); playTTS(data.text);
+      if (data.text) { setDialogHistory(h => [...h, { speaker: story.npcName, text: data.text }]); playNPC(data.text);
         if (data.corrections?.length) setDlgFeedback(data.corrections.map((c: any) => `"${c.original}" → "${c.corrected}"`).join("\n"));
       }
     } catch {} setChatLoading(false); scrollRef.current?.scrollToEnd?.({ animated: true });
@@ -172,9 +186,15 @@ export default function LessonV2Screen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 1.5 }}>DU TRIFFST</Text>
                 <Text style={{ fontSize: 17, fontWeight: "700", color: C.text, marginTop: 2 }}>{story.npcName}</Text>
-                <Text style={{ fontSize: 13, color: C.muted, fontStyle: "italic", marginTop: 4 }}>"{story.npcGreeting}"</Text>
+                <TouchableOpacity onPress={() => playNPC(story.npcGreeting)}>
+                  <Text style={{ fontSize: 13, color: C.muted, fontStyle: "italic", marginTop: 4 }}>🔊 "{story.npcGreeting}"</Text>
+                </TouchableOpacity>
               </View>
             </View>
+            {/* Play ambient sound for this scene */}
+            <TouchableOpacity style={{ alignItems: "center", marginTop: 14, backgroundColor: C.bg2, borderRadius: 14, padding: 14 }} onPress={playAmbient}>
+              <Text style={{ fontSize: 13, color: C.muted }}>🎧 Atmosphäre anhören</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -184,7 +204,7 @@ export default function LessonV2Screen() {
             <View style={s.transitionBox}><Text style={s.transitionText}>{story.listenIntro}</Text></View>
             <View style={s.darkCard}>
               <Text style={s.darkLabel}>🎧 HÖRTEXT</Text>
-              <TouchableOpacity style={s.playBtn} onPress={async () => { setAudioPlaying(true); await playTTS(fullGerman); setAudioPlaying(false); setListened(true); }} disabled={audioPlaying}>
+              <TouchableOpacity style={s.playBtn} onPress={async () => { setAudioPlaying(true); await playNPC(fullGerman); setAudioPlaying(false); setListened(true); }} disabled={audioPlaying}>
                 <Text style={{ fontSize: 24 }}>{audioPlaying ? "🔊" : "▶️"}</Text>
                 <Text style={s.playBtnText}>{audioPlaying ? "Hör zu..." : listened ? "Nochmal anhören" : "Anhören"}</Text>
               </TouchableOpacity>
@@ -205,7 +225,12 @@ export default function LessonV2Screen() {
                 <Text style={s.keywordsLabel}>SCHLÜSSELWÖRTER</Text>
                 {highlights.slice(0, 8).map((h: string, i: number) => {
                   const [de, en] = h.split("::").map((x: string) => x.trim());
-                  return (<View key={i} style={s.keywordRow}><Text style={s.keywordDe}>{de}</Text><Text style={s.keywordEn}>{en}</Text></View>);
+                  return (
+                    <TouchableOpacity key={i} style={s.keywordRow} onPress={() => ElevenLabs.playWord(de)} activeOpacity={0.6}>
+                      <Text style={s.keywordDe}>🔊 {de}</Text>
+                      <Text style={s.keywordEn}>{en}</Text>
+                    </TouchableOpacity>
+                  );
                 })}
               </View>
             )}

@@ -172,4 +172,50 @@ export const ElevenLabs = {
     const voiceId = CHARACTER_VOICES[speaker] || CHARACTER_VOICES.default;
     await this.playText(text, voiceId);
   },
+
+  /** Sound Effects: Generate ambient sounds */
+  async playSoundEffect(prompt: string, duration = 3): Promise<void> {
+    try {
+      const res = await fetch(`${BASE}/sound-generation`, {
+        method: "POST",
+        headers: {
+          "xi-api-key": API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: prompt,
+          duration_seconds: duration,
+        }),
+      });
+      if (!res.ok) return;
+
+      if (Platform.OS === "web") {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new window.Audio(url);
+        audio.volume = 0.3; // ambient = quiet
+        await audio.play();
+      } else {
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+        const arrayBuffer = await res.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        const base64 = btoa(binary);
+        const fileUri = FileSystem.cacheDirectory + `sfx_${Date.now()}.mp3`;
+        await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        const { sound } = await Audio.Sound.createAsync({ uri: fileUri }, { shouldPlay: true, volume: 0.3 });
+        sound.setOnPlaybackStatusUpdate(status => {
+          if (status.isLoaded && status.didJustFinish) { sound.unloadAsync(); FileSystem.deleteAsync(fileUri, { idempotent: true }); }
+        });
+      }
+    } catch (e) {
+      console.log("SFX error:", e);
+    }
+  },
+
+  /** Play a single word for pronunciation */
+  async playWord(word: string): Promise<void> {
+    await this.playText(word, VOICES.female);
+  },
 };
