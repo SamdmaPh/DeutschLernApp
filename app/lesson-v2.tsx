@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, StatusBar, Image } from "react-native";
+import React, { useState, useCallback } from "react";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, StatusBar, Image, Platform } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ALL_STATIC_LESSONS } from "../data/lessonData";
 import { SITUATION_IMAGES } from "../data/images";
@@ -8,6 +8,12 @@ import { SRS } from "../services/srs";
 import { ElevenLabs, CHARACTER_VOICES, VOICES } from "../services/elevenlabs";
 import { getStory } from "../data/storyData";
 import { C, SAFE_TOP, SERIF } from "../theme";
+
+// ElevenLabs Agent IDs per lesson
+const AGENT_IDS: Record<string, string> = {
+  "a1-0-1": "agent_5401knrqf0wtep1ap9j8mddqem14", // Taxifahrer Hans
+  // More agents can be added per lesson
+};
 
 const BACKEND = "https://deutschlernappbackend2-production.up.railway.app";
 
@@ -314,73 +320,150 @@ export default function LessonV2Screen() {
           </View>
         )}
 
-        {/* ═══ 5. SPRECHEN (Quest) ═══ */}
+        {/* ═══ 5. SPRECHEN (ElevenLabs Live Agent) ═══ */}
         {step === 4 && (
           <View>
+            {/* Quest goals */}
             {quest && (
               <View style={s.darkCard}>
                 <Text style={s.darkLabel}>🎯 QUEST</Text>
                 <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: "#FFF" }}>{quest.title}</Text>
                 <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>{quest.titleEn}</Text>
                 <View style={{ marginTop: 14, gap: 8 }}>
-                  {quest.goals.map((goal: any) => {
-                    const done = completedGoals.includes(goal.id);
-                    return (
-                      <View key={goal.id} style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-                        <Text style={{ fontSize: 18 }}>{done ? "✅" : "⬜"}</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 14, color: done ? "#4ADE80" : "#FFF" }}>{goal.text}</Text>
-                          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{goal.textEn}</Text>
-                        </View>
+                  {quest.goals.map((goal: any) => (
+                    <View key={goal.id} style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                      <Text style={{ fontSize: 18 }}>⬜</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, color: "#FFF" }}>{goal.text}</Text>
+                        <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)" }}>{goal.textEn}</Text>
                       </View>
-                    );
-                  })}
+                    </View>
+                  ))}
                 </View>
               </View>
             )}
-            {!questStarted && (
-              <TouchableOpacity style={s.startQuestBtn} onPress={startQuest}>
-                <Text style={{ fontSize: 36 }}>{story.npcEmoji}</Text>
-                <Text style={{ fontSize: 17, fontWeight: "900", color: "#FFF", marginTop: 8 }}>Gespräch starten</Text>
-              </TouchableOpacity>
-            )}
-            {dialogHistory.map((msg, i) => (
-              <View key={i} style={msg.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
-                <Text style={s.bubbleSpeaker}>{msg.speaker === "You" ? "Du" : msg.speaker}</Text>
-                <Text style={[s.bubbleText, msg.speaker === "You" && { color: "#fff" }]}>{msg.text}</Text>
-              </View>
-            ))}
-            {chatLoading && <Text style={{ color: C.muted, fontSize: 13, marginTop: 8 }}>💬 {story.npcName} antwortet...</Text>}
-            {dlgFeedback && !chatLoading && (
-              <View style={{ backgroundColor: C.goldDim, borderRadius: 12, padding: 12, marginTop: 8, borderWidth: 1, borderColor: C.goldLine }}>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: C.gold }}>KORREKTUR</Text>
-                <Text style={{ fontSize: 13, color: C.text, marginTop: 4 }}>{dlgFeedback}</Text>
-              </View>
-            )}
-            {questStarted && !allGoalsDone && !chatLoading && quest && (() => {
-              const nextGoal = quest.goals.find((g: any) => !completedGoals.includes(g.id));
-              return nextGoal ? (
-                <View style={{ backgroundColor: C.blueDim, borderRadius: 12, padding: 12, marginTop: 10, borderWidth: 1, borderColor: C.blueLine }}>
-                  <Text style={{ fontSize: 10, fontWeight: "800", color: C.blue }}>💡 TIPP</Text>
-                  <Text style={{ fontSize: 14, color: C.blue, marginTop: 4 }}>{nextGoal.text}</Text>
-                  <Text style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{nextGoal.textEn}</Text>
-                </View>
-              ) : null;
+
+            {/* ElevenLabs Agent — embedded via WebView */}
+            {(() => {
+              const agentId = AGENT_IDS[lesson.id];
+              if (!agentId) {
+                // Fallback: old text-based quest conversation
+                return (
+                  <View>
+                    {!questStarted && (
+                      <TouchableOpacity style={s.startQuestBtn} onPress={startQuest}>
+                        <Text style={{ fontSize: 36 }}>{story.npcEmoji}</Text>
+                        <Text style={{ fontSize: 17, fontWeight: "900", color: "#FFF", marginTop: 8 }}>Gespräch starten</Text>
+                      </TouchableOpacity>
+                    )}
+                    {dialogHistory.map((msg, i) => (
+                      <View key={i} style={msg.speaker === "You" ? s.bubbleRight : s.bubbleLeft}>
+                        <Text style={s.bubbleSpeaker}>{msg.speaker === "You" ? "Du" : msg.speaker}</Text>
+                        <Text style={[s.bubbleText, msg.speaker === "You" && { color: "#fff" }]}>{msg.text}</Text>
+                      </View>
+                    ))}
+                    {chatLoading && <Text style={{ color: C.muted, fontSize: 13, marginTop: 8 }}>💬 {story.npcName} antwortet...</Text>}
+                    {questStarted && !allGoalsDone && !chatLoading && (
+                      <View style={{ marginTop: 16, flexDirection: "row", gap: 8 }}>
+                        <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Auf Deutsch tippen..." placeholderTextColor={C.muted} onSubmitEditing={sendMessage} returnKeyType="send" />
+                        <TouchableOpacity style={s.sendBtn} onPress={sendMessage}><Text style={{ color: "#FFF", fontSize: 18, fontWeight: "700" }}>→</Text></TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                );
+              }
+
+              // ElevenLabs Agent available — show live conversation UI
+              const WebView = (() => { try { return require("react-native-webview").default; } catch { return null; } })();
+
+              const agentHTML = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><style>
+                * { margin:0; padding:0; box-sizing:border-box; }
+                body { font-family:-apple-system,system-ui,sans-serif; background:#1A1A2E; color:#F0F0F5; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
+                h2 { font-size:20px; margin-bottom:8px; }
+                p { font-size:14px; color:#8A8AA0; margin-bottom:24px; text-align:center; line-height:1.5; }
+                .mic-btn { width:100px; height:100px; border-radius:50px; background:#FFB300; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:40px; box-shadow:0 4px 20px rgba(255,179,0,0.3); transition:all 0.3s; }
+                .mic-btn.active { background:#E53935; box-shadow:0 4px 20px rgba(229,57,53,0.3); animation:pulse 1.5s infinite; }
+                .mic-btn:hover { transform:scale(1.05); }
+                @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+                .status { margin-top:16px; font-size:14px; color:#FFB300; font-weight:700; }
+                .hint { margin-top:20px; background:rgba(255,179,0,0.1); border:1px solid rgba(255,179,0,0.3); border-radius:12px; padding:14px; max-width:300px; text-align:center; }
+                .hint-label { font-size:10px; font-weight:900; color:#FFB300; letter-spacing:2px; margin-bottom:6px; }
+                .hint-text { font-size:14px; color:#F0F0F5; }
+              </style></head><body>
+                <h2>🎤 Sprich mit ${story.npcName}</h2>
+                <p>Tippe auf den Mikrofon-Button und sprich Deutsch!<br>${story.npcName} antwortet dir in Echtzeit.</p>
+                <button class="mic-btn" id="mic" onclick="toggleConversation()">🎤</button>
+                <div class="status" id="status">Tippe zum Starten</div>
+                <div class="hint"><div class="hint-label">💡 TIPP</div><div class="hint-text">${quest?.goals?.[0]?.text || "Begrüße den Taxifahrer!"}<br><span style="color:#8A8AA0;font-size:12px">${quest?.goals?.[0]?.textEn || "Greet the taxi driver!"}</span></div></div>
+                <script src="https://unpkg.com/@11labs/client@latest/dist/browser.min.js"></script>
+                <script>
+                  let conversation = null;
+                  let isActive = false;
+                  async function toggleConversation() {
+                    const btn = document.getElementById('mic');
+                    const status = document.getElementById('status');
+                    if (!isActive) {
+                      try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        const ElevenLabs = window.ElevenLabsClient || window.elevenlabs;
+                        if (ElevenLabs && ElevenLabs.Conversation) {
+                          conversation = await ElevenLabs.Conversation.startSession({
+                            agentId: '${agentId}',
+                            onConnect: () => { status.textContent = '🟢 Verbunden — sprich jetzt!'; },
+                            onDisconnect: () => { status.textContent = 'Gespräch beendet'; btn.className='mic-btn'; isActive=false; },
+                            onError: (e) => { status.textContent = 'Fehler: ' + e.message; },
+                            onMessage: (msg) => { console.log('msg:', msg); },
+                          });
+                        } else {
+                          // Fallback: just show connected state
+                          status.textContent = 'SDK lädt... Versuche es nochmal';
+                          return;
+                        }
+                        btn.className = 'mic-btn active';
+                        btn.textContent = '⏹';
+                        isActive = true;
+                      } catch(e) {
+                        status.textContent = 'Mikrofon-Zugriff verweigert';
+                      }
+                    } else {
+                      if (conversation) await conversation.endSession();
+                      btn.className = 'mic-btn';
+                      btn.textContent = '🎤';
+                      status.textContent = 'Gespräch beendet ✅';
+                      isActive = false;
+                    }
+                  }
+                </script>
+              </body></html>`;
+
+              if (Platform.OS === "web") {
+                return (
+                  <View style={{ borderRadius: 20, overflow: "hidden", minHeight: 400 }}>
+                    <iframe srcDoc={agentHTML} style={{ width: "100%", height: 450, border: "none", borderRadius: 20 } as any} allow="microphone" />
+                  </View>
+                );
+              } else if (WebView) {
+                return (
+                  <View style={{ borderRadius: 20, overflow: "hidden", height: 450 }}>
+                    <WebView
+                      source={{ html: agentHTML }}
+                      style={{ flex: 1, borderRadius: 20, backgroundColor: "#1A1A2E" }}
+                      mediaPlaybackRequiresUserAction={false}
+                      allowsInlineMediaPlayback
+                      javaScriptEnabled
+                      domStorageEnabled
+                      mediaCapturePermissionGrantType="grant"
+                    />
+                  </View>
+                );
+              } else {
+                return (
+                  <View style={{ alignItems: "center", padding: 20 }}>
+                    <Text style={{ color: C.muted }}>WebView nicht verfügbar — bitte react-native-webview installieren</Text>
+                  </View>
+                );
+              }
             })()}
-            {questStarted && !allGoalsDone && !chatLoading && (
-              <View style={{ marginTop: 16 }}>
-                <View style={{ flexDirection: "row", gap: 8 }}>
-                  <TextInput style={s.chatInput} value={dlgInput} onChangeText={setDlgInput} placeholder="Auf Deutsch sprechen oder tippen..." placeholderTextColor={C.muted} onSubmitEditing={sendMessage} returnKeyType="send" />
-                  <TouchableOpacity style={s.sendBtn} onPress={sendMessage}><Text style={{ color: "#FFF", fontSize: 18, fontWeight: "700" }}>→</Text></TouchableOpacity>
-                </View>
-              </View>
-            )}
-            {allGoalsDone && questStarted && (
-              <View style={{ alignItems: "center", marginTop: 20 }}>
-                <Text style={{ fontSize: 48 }}>🏆</Text>
-                <Text style={{ fontFamily: SERIF, fontSize: 20, fontWeight: "700", color: C.text, marginTop: 8 }}>Quest geschafft!</Text>
-              </View>
-            )}
           </View>
         )}
 
