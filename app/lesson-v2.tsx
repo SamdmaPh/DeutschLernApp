@@ -38,6 +38,7 @@ export default function LessonV2() {
   const [playing, setPlaying] = useState(false);
   const [listened, setListened] = useState(false);
   const [showTrans, setShowTrans] = useState(false);
+  const [sceneNarrated, setSceneNarrated] = useState(false);
 
   // Read
   const [readAns, setReadAns] = useState<Record<number, number>>({});
@@ -134,11 +135,28 @@ export default function LessonV2() {
 
       <ScrollView ref={ref} showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
 
-        {/* ═══ 1. SCENE ═══ */}
+        {/* ═══ 1. SCENE (Cinematic — video + narration auto-play) ═══ */}
         {step === 0 && <>
+          {/* Auto-narrate when scene loads */}
+          {!sceneNarrated && (() => {
+            // Trigger narration after a short delay (let video start first)
+            setTimeout(async () => {
+              if (sceneNarrated) return;
+              setSceneNarrated(true);
+              // Ambient sound first
+              if (SFX[lesson.id]) ElevenLabs.playSoundEffect(SFX[lesson.id], 10);
+              // Wait a beat, then narrator speaks
+              await new Promise(r => setTimeout(r, 1500));
+              await speakEn(story.hookNarrationEn || lesson.description);
+              // Then NPC says their greeting
+              await new Promise(r => setTimeout(r, 800));
+              await speak(story.npcGreeting);
+            }, 500);
+            return null;
+          })()}
+
           {/* Video or Image hero */}
           {(() => {
-            // Try to load video component
             const VideoComp = (() => { try { const { Video, ResizeMode } = require("expo-av"); return { Video, ResizeMode }; } catch { return null; } })();
             const videoSource = story.hookVideo;
 
@@ -147,9 +165,9 @@ export default function LessonV2() {
                 <View style={s.imgWrap}>
                   <VideoComp.Video
                     source={typeof videoSource === "string" ? { uri: videoSource } : videoSource}
-                    style={{ width: "100%", height: 280, borderRadius: 20 }}
+                    style={{ width: "100%", height: 300, borderRadius: 20 }}
                     resizeMode={VideoComp.ResizeMode?.COVER || "cover"}
-                    shouldPlay isLooping isMuted={false}
+                    shouldPlay isLooping isMuted
                   />
                   <View style={s.imgOverlay}>
                     <Text style={s.imgLabel}>LESSON {lesson.order_index}</Text>
@@ -177,17 +195,22 @@ export default function LessonV2() {
             );
           })()}
 
-          {/* English narration — with audio button */}
+          {/* Narration text (visible while audio plays) */}
           <View style={s.dark}>
-            <TouchableOpacity onPress={async () => {
-              // Play ambient + narrator together
-              if (SFX[lesson.id]) ElevenLabs.playSoundEffect(SFX[lesson.id], 8);
-              await speakEn(story.hookNarrationEn || lesson.description);
-            }} style={s.listenRow}>
-              <Text style={{ fontSize: 20 }}>▶</Text>
-              <Text style={s.listenLabel}>Play the story</Text>
-            </TouchableOpacity>
+            <Text style={{ fontSize: 11, fontWeight: "900", color: C.gold, letterSpacing: 2, marginBottom: 10 }}>{sceneNarrated ? "🔊 NARRATING..." : "⏳ STARTING..."}</Text>
             <Text style={s.darkTxt}>{story.hookNarrationEn || lesson.description}</Text>
+            {/* Replay button */}
+            {sceneNarrated && (
+              <TouchableOpacity onPress={async () => {
+                if (SFX[lesson.id]) ElevenLabs.playSoundEffect(SFX[lesson.id], 8);
+                await speakEn(story.hookNarrationEn || lesson.description);
+                await new Promise(r => setTimeout(r, 800));
+                await speak(story.npcGreeting);
+              }} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 }}>
+                <Text style={{ fontSize: 14 }}>🔄</Text>
+                <Text style={{ fontSize: 13, color: C.gold, fontWeight: "600" }}>Replay</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* NPC speaks German — tap to hear + translation */}
