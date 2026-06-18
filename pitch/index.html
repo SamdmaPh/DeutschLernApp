@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wundervoll — Investor Pitch</title>
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css" id="theme" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --navy:  #070B18;
+      --navy2: #0A1020;
+      --navy3: #0F1628;
+      --border:#1E2D45;
+      --gold:  #C9A84C;
+      --goldBg:rgba(201,168,76,0.10);
+      --goldBorder:rgba(201,168,76,0.28);
+      --red:   #CC0000;
+      --green: #22C55E;
+      --white: #FFFFFF;
+      --text:  #E2E8F0;
+      --muted: #64748B;
+    }
+
+    .reveal { font-family: 'Inter', sans-serif; color: var(--text); }
+    .reveal .slides section { text-align: left; top: 0 !important; }
+    .reveal-viewport { background: var(--navy); }
+
+    .reveal h1, .reveal h2, .reveal h3 { color: var(--white); font-weight: 900; letter-spacing: -0.5px; text-transform: none; }
+    .reveal h1 { font-size: 3.0em; }
+    .reveal h2 { font-size: 1.75em; line-height: 1.1; }
+    .reveal h3 { font-size: 1.1em; color: var(--gold); font-weight: 700; }
+    .reveal p, .reveal li { color: var(--text); }
+    .reveal strong { color: var(--gold); }
+    .reveal em { color: var(--white); font-style: normal; font-weight: 700; }
+
+    .reveal a { color: var(--gold); }
+
+    /* German flag accent bar */
+    .flagbar { display:flex; height: 6px; width: 120px; border-radius: 3px; overflow:hidden; margin-bottom: 22px; }
+    .flagbar i { flex:1; }
+    .flagbar i:nth-child(1){ background:#111; }
+    .flagbar i:nth-child(2){ background:var(--red); }
+    .flagbar i:nth-child(3){ background:var(--gold); }
+
+    .kicker { color: var(--gold); font-weight: 700; letter-spacing: 2px; font-size: 0.55em; text-transform: uppercase; margin-bottom: 8px; }
+    .tagline { color: var(--gold); font-size: 1.3em; font-weight: 700; margin: 4px 0 18px; }
+    .lead { font-size: 0.95em; color: var(--text); max-width: 18em; line-height: 1.5; }
+    .muted { color: var(--muted); font-size: 0.7em; }
+
+    .logo { font-weight: 900; font-size: 3.4em; letter-spacing: -2px; }
+    .logo .w  { color:#5b6678; }
+    .logo .vo { color: var(--red); }
+    .logo .ll { color: var(--gold); }
+
+    .cards { display:flex; flex-wrap:wrap; gap: 14px; margin-top: 10px; }
+    .card { background: var(--navy2); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; flex: 1 1 240px; }
+    .card .ico { font-size: 1.6em; }
+    .card .t { color: var(--white); font-weight: 800; font-size: 0.8em; margin: 6px 0 4px; }
+    .card .d { color: var(--muted); font-size: 0.62em; line-height: 1.45; }
+
+    .stats { display:flex; gap: 28px; margin-top: 18px; }
+    .stat .n { color: var(--gold); font-size: 2.4em; font-weight: 900; line-height: 1; }
+    .stat .l { color: var(--muted); font-size: 0.6em; text-transform: uppercase; letter-spacing: 1px; margin-top: 6px; }
+
+    .reveal ul { margin-left: 1em; }
+    .reveal li { margin: 0.45em 0; line-height: 1.4; font-size: 0.92em; }
+
+    .pill { display:inline-block; background: var(--goldBg); border:1px solid var(--goldBorder); color: var(--gold);
+            border-radius: 999px; padding: 4px 14px; font-size: 0.55em; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+
+    .word { background: var(--navy2); border:1px solid var(--border); border-radius: 14px; padding: 14px 18px; margin: 10px 0; }
+    .word .w { color: var(--gold); font-weight: 900; font-size: 1.05em; }
+    .word .d { color: var(--text); font-size: 0.72em; line-height: 1.45; }
+
+    .flow { display:flex; align-items:center; gap: 10px; flex-wrap:wrap; margin-top: 8px; }
+    .flow .step { background: var(--navy2); border:1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: 0.7em; color: var(--text); }
+    .flow .step.bad { border-color: rgba(204,0,0,0.4); }
+    .flow .step.good { border-color: var(--goldBorder); color: var(--gold); }
+    .flow .arr { color: var(--gold); font-weight: 900; }
+
+    .level-row { display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px; }
+    .level-row .lv { background: var(--goldBg); border:1px solid var(--goldBorder); color: var(--gold); border-radius: 8px; padding: 6px 12px; font-size: 0.62em; font-weight: 700; }
+
+    .reveal .controls { color: var(--gold); }
+    .reveal .progress { color: var(--gold); }
+    .footer-brand { position: fixed; bottom: 14px; left: 18px; font-size: 11px; color: var(--muted); z-index: 30; letter-spacing: 1px; }
+    .two-col { display:flex; gap: 30px; align-items: flex-start; }
+    .two-col > div { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="footer-brand">WUNDERVOLL · German, made wonderful</div>
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- 1 — COVER -->
+      <section data-background-color="#070B18">
+        <div class="flagbar"><i></i><i></i><i></i></div>
+        <div class="logo"><span class="w">WUNDER</span><span class="vo">VO</span><span class="ll">LL</span> 🇩🇪</div>
+        <div class="tagline">German, made wonderful.</div>
+        <p class="lead">The language app that actually teaches you to <strong>speak</strong> — not just tap colourful circles.</p>
+        <p class="muted" style="margin-top:24px;">A premium mobile language-learning app · Expo / React Native · iOS · Android · Web</p>
+      </section>
+
+      <!-- 2 — PROBLEM -->
+      <section data-background-color="#070B18">
+        <div class="kicker">The Problem</div>
+        <h2>Millions are "learning" a language — with nothing to show for it.</h2>
+        <ul>
+          <li>Gamified apps optimise for <strong>streaks and addiction</strong>, not fluency. People keep 1,000-day streaks and still can't order a coffee in German.</li>
+          <li>Endless tapping of colourful bubbles ≠ real conversation skills.</li>
+          <li>Grammar is taught like a textbook — dry, abstract, forgettable.</li>
+          <li>Learners quit because they never feel the payoff of <strong>actually speaking</strong>.</li>
+        </ul>
+        <p class="muted" style="margin-top:14px;">The result: high engagement metrics, low real-world competence.</p>
+      </section>
+
+      <!-- 3 — SOLUTION -->
+      <section data-background-color="#070B18">
+        <div class="kicker">The Solution</div>
+        <h2>A German app built around <span style="color:var(--gold)">speaking from day one</span>.</h2>
+        <ul>
+          <li><strong>Real sentences. Real conversations. Real progress.</strong></li>
+          <li>Every lesson built around phrases you'll use immediately.</li>
+          <li>Grammar explained like a human, not a textbook.</li>
+          <li>Science-backed: flashcards, spaced repetition, quizzes &amp; mnemonics in one smooth flow that sticks.</li>
+          <li>A love letter to the language itself — its beauty, its untranslatable words, its soul.</li>
+        </ul>
+      </section>
+
+      <!-- 4 — KEY FEATURES -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Product</div>
+        <h2>Six features, one wonderful flow.</h2>
+        <div class="cards">
+          <div class="card"><div class="ico">📚</div><div class="t">53 Structured Lessons</div><div class="d">A1 → A2 curriculum mapped to CEFR, with grammar, listening, vocab &amp; dialogue.</div></div>
+          <div class="card"><div class="ico">🤖</div><div class="t">AI Conversation Partner</div><div class="d">Chat by voice or text; real-time grammar corrections with friendly explanations.</div></div>
+          <div class="card"><div class="ico">🎯</div><div class="t">Placement Test</div><div class="d">A 20-question quiz instantly places learners at A1–C1.</div></div>
+        </div>
+        <div class="cards">
+          <div class="card"><div class="ico">🏆</div><div class="t">Quiz &amp; XP System</div><div class="d">Earn XP, level up from Anfänger to Meister, build daily streaks.</div></div>
+          <div class="card"><div class="ico">✨</div><div class="t">Wort des Tages</div><div class="d">The beautiful, untranslatable words that make German special.</div></div>
+          <div class="card"><div class="ico">🎧</div><div class="t">Native Audio</div><div class="d">Professionally generated pronunciation for every lesson.</div></div>
+        </div>
+      </section>
+
+      <!-- 5 — AI PARTNER -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Hero Feature</div>
+        <h2>Practise speaking with <span style="color:var(--gold)">zero fear of judgement</span>.</h2>
+        <div class="two-col">
+          <div>
+            <ul>
+              <li>Speak or type on real topics: Kennenlernen, Im Café, Reisen, Arbeit, Familie, Wetter.</li>
+              <li>The AI replies naturally, then gently corrects your mistakes.</li>
+              <li>Voice mode with live transcription — or text mode. Your choice.</li>
+              <li>The practice partner most learners can never find: patient, 24/7, always encouraging.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>How a correction works</h3>
+            <div class="flow" style="flex-direction:column; align-items:stretch;">
+              <div class="step bad">Your sentence: "Ich habe gegangen."</div>
+              <div class="arr" style="text-align:center;">↓</div>
+              <div class="step good">Corrected: "Ich <strong>bin</strong> gegangen."</div>
+              <div class="arr" style="text-align:center;">↓</div>
+              <div class="step">Why: movement verbs take <em>sein</em>, not <em>haben</em>.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6 — CURRICULUM -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Pedagogy</div>
+        <h2>A real curriculum — not a game.</h2>
+        <ul>
+          <li>Lessons progress through pronunciation, grammar, vocabulary, listening &amp; speaking.</li>
+          <li><strong>Example — Lesson A1.0 "Aussprache, Das Fundament":</strong> the 6 critical sounds that separate German from English, so locals understand you immediately.</li>
+          <li>Clear learning objectives per lesson; XP rewarded on completion.</li>
+          <li>Built to take a true beginner to confident A2 — and beyond.</li>
+        </ul>
+        <p class="pill" style="margin-top:14px;">CEFR-aligned · A1 → A2 → B1/B2 roadmap</p>
+      </section>
+
+      <!-- 7 — WORD OF THE DAY -->
+      <section data-background-color="#070B18">
+        <div class="kicker">The Emotional Hook</div>
+        <h2>Fall in love with the language.</h2>
+        <div class="two-col">
+          <div>
+            <div class="word"><span class="w">Fernweh</span><div class="d">A deep, aching longing to travel to distant places.</div></div>
+            <div class="word"><span class="w">Weltschmerz</span><div class="d">The pain of the world as it is falling short of how it should be.</div></div>
+            <div class="word"><span class="w">Zweisamkeit</span><div class="d">The warm intimacy of being together with just one other person.</div></div>
+          </div>
+          <div>
+            <h3>Every word includes</h3>
+            <ul>
+              <li>Pronunciation guide</li>
+              <li>Literal part-by-part breakdown</li>
+              <li>Rich meaning &amp; example sentence</li>
+              <li>Why it's beautiful — fully shareable</li>
+            </ul>
+            <p class="muted" style="margin-top:12px;">Turns a study tool into something people love — and share.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8 — RETENTION -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Retention</div>
+        <h2>Gamification done right.</h2>
+        <ul>
+          <li>XP system with six levels of mastery:</li>
+        </ul>
+        <div class="level-row">
+          <span class="lv">Anfänger</span><span class="lv">Einsteiger</span><span class="lv">Lernender</span>
+          <span class="lv">Fortgeschrittener</span><span class="lv">Experte</span><span class="lv">Meister</span>
+        </div>
+        <ul style="margin-top:16px;">
+          <li>Daily streaks build the habit · progress tracking across lessons &amp; skills.</li>
+          <li>Quizzes reinforce memory through active recall &amp; spaced repetition.</li>
+          <li><strong>The difference:</strong> every engagement mechanic is tied to genuine competence.</li>
+        </ul>
+      </section>
+
+      <!-- 9 — PERSONALISATION -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Onboarding</div>
+        <h2>Personalised from the first tap.</h2>
+        <div class="cards">
+          <div class="card"><div class="ico">✈️</div><div class="t">Travel</div></div>
+          <div class="card"><div class="ico">💼</div><div class="t">Work</div></div>
+          <div class="card"><div class="ico">👨‍👩‍👧</div><div class="t">Family</div></div>
+          <div class="card"><div class="ico">🎭</div><div class="t">Culture</div></div>
+          <div class="card"><div class="ico">❤️</div><div class="t">Love</div></div>
+          <div class="card"><div class="ico">🧠</div><div class="t">Brain</div></div>
+        </div>
+        <ul style="margin-top:14px;">
+          <li>Pick your goal · set your level honestly — we start exactly where you are.</li>
+          <li>Optional placement test fine-tunes the path.</li>
+          <li>The experience adapts to <strong>why</strong> you're learning — boosting day-1 retention.</li>
+        </ul>
+      </section>
+
+      <!-- 10 — TECHNOLOGY -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Technology</div>
+        <h2>Built to scale — modern, cross-platform, lean.</h2>
+        <ul>
+          <li><strong>Expo / React Native</strong> — one codebase shipping to iOS, Android &amp; Web.</li>
+          <li><strong>Supabase</strong> backend for lesson content and data.</li>
+          <li>Dedicated <strong>AI backend service</strong> powering live conversation &amp; corrections.</li>
+          <li>Premium, distinctive design language: deep navy, gold, German-flag accents.</li>
+          <li>Fast to iterate, cheap to scale, ready for the app stores today.</li>
+        </ul>
+      </section>
+
+      <!-- 11 — MARKET -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Market Opportunity</div>
+        <h2>A massive, proven, growing market.</h2>
+        <div class="stats">
+          <div class="stat"><div class="n">$10B+</div><div class="l">Language-app market, growing double digits</div></div>
+          <div class="stat"><div class="n">Top&nbsp;5</div><div class="l">Most-studied languages worldwide: German</div></div>
+          <div class="stat"><div class="n">DACH</div><div class="l">Work, study &amp; migration demand</div></div>
+        </div>
+        <ul style="margin-top:18px;">
+          <li>Duolingo proved consumers pay for language apps at scale — but left a gap for learners who want <strong>real fluency</strong>.</li>
+          <li>Wundervoll targets serious learners: travellers, professionals, students &amp; expats moving to German-speaking countries.</li>
+        </ul>
+      </section>
+
+      <!-- 12 — BUSINESS MODEL -->
+      <section data-background-color="#070B18">
+        <div class="kicker">Business Model</div>
+        <h2>Freemium subscription, premium positioning.</h2>
+        <div class="two-col">
+          <div>
+            <h3>Free</h3>
+            <ul><li>Core lessons</li><li>Word of the Day</li><li>Hook learners in</li></ul>
+          </div>
+          <div>
+            <h3>Wundervoll Premium</h3>
+            <ul>
+              <li>Unlimited AI conversation</li>
+              <li>Full curriculum &amp; advanced corrections</li>
+              <li>Offline audio · monthly &amp; annual plans</li>
+            </ul>
+          </div>
+        </div>
+        <p class="muted" style="margin-top:14px;">Premium brand = premium price vs. mass-market rivals. Future: B2B (schools, corporate relocation, universities) and more languages on the same engine.</p>
+      </section>
+
+      <!-- 13 — VISION & ASK -->
+      <section data-background-color="#070B18">
+        <div class="flagbar"><i></i><i></i><i></i></div>
+        <div class="kicker">Vision &amp; The Ask</div>
+        <h2>From app to <span style="color:var(--gold)">the way the world learns German</span>.</h2>
+        <ul>
+          <li>Become the destination for people who don't just want a streak — they want to truly speak.</li>
+          <li>Near-term: extend the curriculum to B1/B2, expand AI topics, launch Premium.</li>
+          <li>The engine is language-agnostic — <strong>German today, the world tomorrow</strong>.</li>
+          <li><strong>The ask:</strong> partnership &amp; investment to scale content, AI and growth.</li>
+        </ul>
+        <p class="tagline" style="margin-top:18px;">Sprichst du schon Deutsch? Let's make it wundervoll. 🇩🇪</p>
+      </section>
+
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      slideNumber: 'c/t',
+      transition: 'slide',
+      width: 1280,
+      height: 720,
+      margin: 0.06,
+    });
+  </script>
+</body>
+</html>
